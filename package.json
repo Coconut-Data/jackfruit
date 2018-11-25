@@ -1,0 +1,31 @@
+{
+  "name": "strawberry",
+  "version": "1.0.0",
+  "description": "Question Set Editor",
+  "main": "Jackfruit.coffee",
+  "scripts": {
+    "start": "npm run watch & npm run livereload & npm run static & while sleep 2; do echo -n '.'; done",
+    "fancywatch": "./node_modules/watchify/bin/cmd.js -v -t coffeeify --debug --extension='.coffee' Jackfruit.coffee -o bundle.js -x moment -x jquery -x backbone -x pouchdb -x underscore",
+    "watch": "./node_modules/watchify/bin/cmd.js -v -t coffeeify --debug --extension='.coffee' Jackfruit.coffee -o bundle.js",
+    "livereload": "./node_modules/livereloadify/cli.js --glob bundle.js ./",
+    "static": "./node_modules/node-static/bin/cli.js --host-address 0.0.0.0 --port 8085 ./",
+    "buildvendor": "./node_modules/browserify/bin/cmd.js  -r moment -r jquery -r backbone -r pouchdb -r underscore | ./node_modules/uglifyjs/bin/uglifyjs > vendor.min.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "backbone": "^1.3.3",
+    "browserify": "^16.2.3",
+    "coffeeify": "^3.0.1",
+    "highlight.js": "^9.13.1",
+    "jquery": "^3.3.1",
+    "js-cookie": "^2.2.0",
+    "jsoneditor": "^5.26.2",
+    "livereloadify": "^2.0.0",
+    "node-static": "^0.7.11",
+    "pouchdb": "^7.0.0",
+    "underscore": "^1.9.1",
+    "underscore.string": "^3.3.5",
+    "watchify": "^3.11.0"
+  }
+}
