@@ -40,6 +40,12 @@ QuestionSet.propertyList = =>
 
 QuestionSet.questionProperties = =>
   {
+    "action_on_change":
+      "description":"Coffeescript code that will be executed after the answer to this question changes"
+      "data-type": "coffeescript"
+    "action_on_questions_loaded":
+      "description":"Coffeescript code that will be executed after the questions and their current answers are loaded."
+      "data-type": "coffeescript"
     "type":
       "description": "This is the type of question that will be displayed to the user"
       "data-type": "select"

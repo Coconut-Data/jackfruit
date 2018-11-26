@@ -7,6 +7,9 @@ dasherize = require("underscore.string/dasherize")
 titleize = require("underscore.string/titleize")
 humanize = require("underscore.string/humanize")
 slugify = require("underscore.string/slugify")
+get = require 'lodash/get'
+set = require 'lodash/set'
+isJSON = require('is-json');
 
 hljs = require 'highlight.js/lib/highlight';
 coffeescriptHighlight = require 'highlight.js/lib/languages/coffeescript';
@@ -20,8 +23,6 @@ class QuestionSetView extends Backbone.View
     "click .toggleToEdit": "edit"
     "click button.save": "save"
     "click button.cancel": "hideEditableElement"
-    "mouseover .questionSetPropertyName": "showDescription"
-    "mouseleave .questionSetPropertyName": "hideDescription"
     "click .toggleNext": "toggleNext"
     "click .hljs-string": "clickParent"
 
@@ -31,12 +32,6 @@ class QuestionSetView extends Backbone.View
 
   toggleNext: (event) =>
     $(event.target).next().toggle()
-
-  showDescription: (event) =>
-    $(event.target).find(".description").show()
-
-  hideDescription: (event) =>
-    $(event.target).find(".description").hide()
 
   edit: (event) =>
     console.log $(event.target)
@@ -50,16 +45,11 @@ class QuestionSetView extends Backbone.View
     @hideEditableElement(event)
     clickedElement = $(event.target)
     clickedElement.parent().hide()
-    updatedTextareaElement = clickedElement.prev()
-    property = updatedTextareaElement.attr("data-propertyName")
-    switch property
-      when "fullDocument"
-        @questionSet.data = JSON.parse(updatedTextareaElement.val())
-      when "questionData"
-        questionIndex = updatedTextareaElement.attr("data-question-index")
-        @questionSet.data.questions[questionIndex] = JSON.parse(updatedTextareaElement.val())
-      else # Question set properties
-        @questionSet.data[property] = updatedTextareaElement.val()
+    updatedElement = clickedElement.prev()
+    propertyPath = updatedElement.attr("data-property-path")
+    updatedValue = updatedElement.val()
+    updatedValue = JSON.parse(updatedValue) if isJSON(updatedValue)
+    set(@questionSet, "data.#{propertyPath}", updatedValue)
     @questionSet.save().then =>
       @render()
 
@@ -86,12 +76,34 @@ class QuestionSetView extends Backbone.View
     .then =>
       @render()
 
+  renderSyntaxHighlightedCodeWithTextareaForEditing: (propertyPath, preStyle = "") => 
+    code = if propertyPath
+      get(@questionSet.data, propertyPath)
+    else
+      @questionSet.data
+    code = JSON.stringify(code, null, 2) if _(code).isObject()
+    "
+      <pre style='#{preStyle}'>
+        <code class='toggleToEdit'>
+          #{code}
+        </code>
+      </pre>
+      <div style='display:none'>
+        <textarea data-property-path=#{propertyPath}>
+          #{code}
+        </textarea>
+        <button class='save'>Save</button>
+        <button class='cancel'>Cancel</button>
+      </div>
+    "
+
   render: =>
     fullQuestionSetAsPrettyPrintedJSON = JSON.stringify(@questionSet.data, null, 2)
     @$el.html "
       <style>
         .description{
-          display:none
+          font-size: small;
+          color:gray
         }
         .questionSetProperty{
           margin-top:5px;
@@ -100,11 +112,24 @@ class QuestionSetView extends Backbone.View
           width:600px;
           height:200px;
         }
+        code, .toggleToEdit:hover, .toggleNext:hover, .clickToEdit:hover{
+          cursor: pointer
+        }
+        .question-label{
+          font-weight: bold;
+          font-size: large;
+
+        }
+        .clickToEdit{
+          background-color: black;
+          color: gray;
+          padding: 2px;
+        }
       </style>
       <h1>Question Set: #{titleize(@questionSet.name())}</h1>
       <div id='questionSet'>
         <h3>
-          Click on any dark area to edit.
+          Click on any <span style='background-color:black; color:gray; padding:2px;'>dark area</span> to edit.
         </h3>
         <h2>Question Set Level Configuration</h2>
         #{
@@ -112,7 +137,7 @@ class QuestionSetView extends Backbone.View
             propertyMetadata = QuestionSet.properties()[property]
             if propertyMetadata
               switch propertyMetadata["data-type"]
-                when "coffeescript"
+                when "coffeescript", "object"
                   "
                     <div>
                       <div class='questionSetProperty'>
@@ -122,28 +147,18 @@ class QuestionSetView extends Backbone.View
                             #{propertyMetadata.description}
                           </div>
                         </div>
-                        <pre>
-                          <code class='toggleToEdit questionSetPropertyValue #{propertyMetadata["data-type"]}'>
-                            #{value}
-                          </code>
-                        </pre>
-                        <div style='display:none'>
-                          <textarea class='questionSetPropertyValue' data-propertyName='#{property}' id='textarea-#{slugify(property)}'>#{value}</textarea>
-                          <button class='save'>Save</button>
-                          <button class='cancel'>Cancel</button>
-                        </div>
+                        #{
+                          @renderSyntaxHighlightedCodeWithTextareaForEditing(property)
+                        }
                       </div>
                     </div>
-                  "
-                when "object"
-                  "
-                    <textarea>#{JSON.stringify value}</textarea>
                   "
                 else
                   console.error "Unknown type: #{propertyMetadata["data-type"]}: #{value}"
                   alert "Unhandled type"
             else
-              console.error "Unknown property: #{property}: #{value}"
+              return if _(["_id", "_rev", "isApplicationDoc", "collection", "couchapp", "questions"]).contains property
+              console.error "Unknown question set property: #{property}: #{value}"
           .join("")
         }
 
@@ -174,36 +189,124 @@ class QuestionSetView extends Backbone.View
             <div class='toggleNext question-label'>
               #{question.label}
             </div>
-            <pre style='display:none'>
-              <code class='toggleToEdit'>
-                #{JSON.stringify(question, null, 2)}
-              </code>
-            </pre>
-            <div style='display:none'>
-              <textarea data-propertyName='questionData' data-question-index='#{index}'>
-                #{JSON.stringify(question, null, 2)}
-              </textarea>
-              <button class='save'>Save</button>
-              <button class='cancel'>Cancel</button>
+            <div style='display:none; margin-left: 10px; padding: 5px; background-color:#DCDCDC'>
+              <div>Properties Configured:</div>
+              #{
+                _(question).map (value, property) =>
+                  propertyMetadata = QuestionSet.questionProperties()[property]
+                  if propertyMetadata 
+                    propertyPath = "questions[#{index}][#{property}]"
+                    "
+                    <hr/>
+                    <div class='questionPropertyName'>
+                      #{property}
+                      <div class='description'>
+                        #{propertyMetadata.description}
+                      </div>
+                    </div>
+                    " +  switch propertyMetadata["data-type"]
+                      when "coffeescript", "text", "json"
+                        "
+                          <div>
+                            <div class='questionProperty'>
+                              #{
+                                @renderSyntaxHighlightedCodeWithTextareaForEditing(propertyPath)
+                              }
+                            </div>
+                          </div>
+                        "
+                      when "select"
+                        "
+                          <div>
+                            #{property}: <span style='font-weight:bold'>#{question[property]}</span> 
+                            <span style='margin-left: 10xp; font-size:small;' class='toggleNext clickToEdit'>
+                              update
+                            </span>
+
+                            <div style='display:none'>
+                              <select data-property-path='#{propertyPath}'>
+                              #{
+                                _(propertyMetadata.options).map (optionMetadata, option) =>
+                                  "<option #{if option is question[property] then "selected=true" else ""}>#{option}</option>"
+                                .join ""
+                              }
+                              </select>
+                              <button class='save'>Save</button>
+                              <button class='cancel'>Cancel</button>
+                            </div>
+                          </div>
+                        "
+                      when "array"
+                        "
+                          <div>
+                            Items: 
+                            <ul>
+                              #{
+                                _(value.split(/, */)).map (item) =>
+                                  "<li>#{item}</li>"
+                                .join("")
+                              }
+                            </ul>
+                            <span style='margin-left: 10xp; font-size:small;' class='toggleNext clickToEdit'>
+                              update
+                            </span>
+                            <div style='display:none'>
+                              <textarea data-property-path=#{propertyPath}>
+                                #{value}
+                              </textarea>
+                              <button class='save'>Save</button>
+                              <button class='cancel'>Cancel</button>
+                            </div>
+                          </div>
+                        "
+
+                      else
+                        console.error "Unknown type: #{propertyMetadata["data-type"]}: #{value}"
+                  else
+                    console.error "Unknown property: #{property}: #{value}"
+                .join("")
+                #
+                #
+
+              }
+              #{
+                allProperties = Object.keys(QuestionSet.questionProperties())
+                configuredProperties = Object.keys(question)
+                availableProperties = _(allProperties).difference(configuredProperties)
+                if availableProperties.length isnt 0
+                  "
+                  <h3>Additional Available Configuration Options</h3>
+                  <ul>
+                    #{
+                    _(availableProperties).map (property) =>
+                      "<li>
+                        #{property} - <span class='addProperty clickToEdit' property='property' data-property-path='questions[#{index}]'>add</span> - #{QuestionSet.questionProperties()[property].description}
+                      </li>"
+                    .join("")
+                    }
+                  </ul>
+                  "
+                else
+                  ""
+              }
+
+
+              <div class='toggleNext clickToEdit'>
+                Edit Question Directly
+              </div>
+              #{
+                @renderSyntaxHighlightedCodeWithTextareaForEditing("questions[#{index}]", "display:none")
+              }
             </div>
             "
           .join("")
           
         }
 
-        <h2>Full Question Set Definition</h2>
-        <pre>
-          <code class='toggleToEdit'>
-            #{fullQuestionSetAsPrettyPrintedJSON}
-          </code>
-        </pre>
-        <div style='display:none'>
-          <textarea data-propertyName='fullDocument' style='height:600px;'>
-            #{fullQuestionSetAsPrettyPrintedJSON}
-          </textarea>
-          <button class='save'>Save</button>
-          <button class='cancel'>Cancel</button>
-        </div>
+        <h2 class='toggleNext'>Full Question Set Definition</h2>
+        #{
+          @renderSyntaxHighlightedCodeWithTextareaForEditing(null, "display:none")
+        }
       </div>
 
     "
