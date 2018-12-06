@@ -10,6 +10,7 @@ slugify = require("underscore.string/slugify")
 get = require 'lodash/get'
 set = require 'lodash/set'
 isJSON = require('is-json');
+striptags = require 'striptags'
 
 hljs = require 'highlight.js/lib/highlight';
 coffeescriptHighlight = require 'highlight.js/lib/languages/coffeescript';
@@ -187,7 +188,7 @@ class QuestionSetView extends Backbone.View
           _(@questionSet.data.questions).map (question, index) =>
             "
             <div class='toggleNext question-label'>
-              #{question.label}
+              #{striptags(question.label)}
             </div>
             <div style='display:none; margin-left: 10px; padding: 5px; background-color:#DCDCDC'>
               <div>Properties Configured:</div>
