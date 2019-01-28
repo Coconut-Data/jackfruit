@@ -3,16 +3,8 @@ _ = require 'underscore'
 
 class QuestionSet
 
-  constructor: (@target) ->
-
-  fetch: =>
-    throw "No target defined" unless @target?
-    @databaseUrl = "#{@target.httpType}://#{@target.username}:#{@target.password}@#{@target.databaseUrl}/#{@target.databaseName}"
-    @database = new PouchDB(@databaseUrl, skip_setup: true)
-    @database.get(@target.questionSetDocId).then (@data) =>
-
   save: =>
-    @database.put(@data).then (response) =>
+    Jackfruit.database.put(@data).then (response) =>
       @data._rev = response.rev
       Promise.resolve()
     .catch (error) =>
@@ -20,8 +12,13 @@ class QuestionSet
 
   name: => @data._id
 
+QuestionSet.fetch = (docId) =>
+  questionSet = new QuestionSet()
+  Jackfruit.database.get(docId).then (result) =>
+    questionSet.data = result
+    Promise.resolve(questionSet)
 
-QuestionSet.properties = =>
+QuestionSet.properties =
   {
     "onValidatedComplete": 
       "description":"Coffeescript code that will be executed when the entire question is marked complete and validation is passed. Useful for dictating workflow. e.g. open URL, create new result with values copied over, etc."
@@ -38,7 +35,7 @@ QuestionSet.properties = =>
 QuestionSet.propertyList = =>
   _(QuestionSet.properties()).keys()
 
-QuestionSet.questionProperties = =>
+QuestionSet.questionProperties =
   {
     "action_on_change":
       "description":"Coffeescript code that will be executed after the answer to this question changes"
