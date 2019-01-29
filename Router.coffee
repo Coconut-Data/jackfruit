@@ -17,10 +17,16 @@ class Router extends Backbone.Router
   routes:
     "application/:applicationName": "application"
     ":applicationName/questionSet/:questionSetDocId": "questionSet"
+    "logout": "logout"
     "": "default"
 
-  default: () =>
+  logout: =>
     Jackfruit.database = null
+    Cookie.remove("username")
+    Cookie.remove("password")
+    @navigate("#", {trigger:true})
+
+  default: () =>
     @defaultView ?= new DefaultView()
     @defaultView.setElement $("#content")
     @defaultView.render()

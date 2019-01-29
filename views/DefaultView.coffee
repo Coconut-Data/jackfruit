@@ -11,7 +11,7 @@ class DefaultView extends Backbone.View
   events: =>
     "button click": "openQuestionSet"
     "click #login": "login"
-    "change input#application": "setApplication"
+    "change input#application": "login"
     "click #create": "newQuestionSet"
 
   newQuestionSet: =>
@@ -71,47 +71,33 @@ class DefaultView extends Backbone.View
       ).join("")
 
   selectApplication: =>
-    @applications =
-      "Ceshhar": "http://ceshhar.cococloud.co/ceshhar"
-      "Coconut Surveillance": "https://zanzibar.cococloud.co/zanzibar"
-      "Shokishoki": "https://zanzibar.cococloud.co/shokishoki"
-      "Local Shokishoki": "http://localhost:5984/shokishoki"
-
     @$el.html "
       <div>
-        Select a Coconut Application (or enter your own)
-        <input id='application' list='applications'>
-        <datalist id='applications'>
-          #{
-            (for application of @applications
-              "<option value='#{application}'>"
-            ).join("")
-          }
-        </datalist>
+        <h3>
+          Select a Coconut Application (or enter your own)
+        </h3>
+        <div>
+          <input style='font-size:1.5em; margin-left:100px; margin-top:100px;' id='application' list='applications'>
+          <datalist id='applications'>
+            #{
+              (for application of router.applications
+                "<option value='#{application}'>"
+              ).join("")
+            }
+          </datalist>
+        </div>
       </div>
-      <div style='display:none' id='usernamePassword'>
+      <div style='margin-left:100px; margin-top:100px; display:none' id='usernamePassword'>
         Invalid Username and or Password:
         <div>
           Username: <input id='username'/>
         </div>
         <div>
-          <input type='password' id='password'/>
+          Password: <input type='password' id='password'/>
         </div>
         <button id='login'>Login</button>
       </div>
     "
-  setApplicationName: (applicationName) =>
-    @$("#application").val(applicationName)
-    @setApplication()
-
-  setApplication: () =>
-    router.setupDatabase(@$("#application").val())
-    .then => # Login successful
-      router.navigate("application/#{Jackfruit.application}")
-      Jackfruit.database = database
-      @render()
-    .catch =>
-      @getUsernamePassword()
 
   getUsernamePassword: =>
     @$("#usernamePassword").show()
@@ -120,6 +106,11 @@ class DefaultView extends Backbone.View
     @$("#usernamePassword").hide()
     Cookie.set "username", @$("#username").val()
     Cookie.set "password", @$("#password").val()
-    @setApplication()
+    router.setupDatabase(@$("#application").val())
+    .then =>
+      router.navigate "application/#{Jackfruit.application}"
+      @selectOrAddQuestion()
+    .catch =>
+      @getUsernamePassword()
 
 module.exports = DefaultView

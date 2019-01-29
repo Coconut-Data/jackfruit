@@ -165,6 +165,8 @@ class QuestionSetView extends Backbone.View
           background-color: black;
           color: gray;
           padding: 2px;
+          border: solid 2px;
+
         }
 
       </style>
@@ -348,6 +350,7 @@ class QuestionSetView extends Backbone.View
               <span data-question-label='#{question.label}' data-question-index='#{index}' class='removeQuestion clickToEdit'>
                 Remove Question
               </span>
+              <br/>
               <br/>
               <span class='toggleNext clickToEdit'>
                 Edit Question Directly
