@@ -1,5 +1,6 @@
-Backbone = require 'backbone'
+global.Backbone = require 'backbone'
 Backbone.$  = $
+_ = require 'underscore'
 
 humanize = require 'underscore.string/humanize'
 
@@ -17,6 +18,7 @@ class Router extends Backbone.Router
   routes:
     "application/:applicationName": "application"
     ":applicationName/questionSet/:questionSetDocId": "questionSet"
+    ":applicationName/questionSet/:questionSetDocId/:question": "questionSet"
     "logout": "logout"
     "": "default"
 
@@ -47,11 +49,12 @@ class Router extends Backbone.Router
       Jackfruit.database = database
       Promise.resolve()
 
-  questionSet: (applicationName, questionSetDocId) =>
+  questionSet: (applicationName, questionSetDocId, question) =>
     @setupDatabase(applicationName).then =>
       @questionSetView ?= new QuestionSetView()
       @questionSetView.setElement $("#content")
       @questionSetView.questionSet = await QuestionSet.fetch(questionSetDocId)
+      @questionSetView.activeQuestionLabel = question
       @questionSetView.render()
     .catch (error) =>
       console.error error

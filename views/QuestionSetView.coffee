@@ -13,6 +13,7 @@ unset = require 'lodash/unset'
 pullAt = require 'lodash/pullAt'
 isJSON = require('is-json');
 striptags = require 'striptags'
+Sortable = require 'sortablejs'
 
 hljs = require 'highlight.js/lib/highlight';
 coffeescriptHighlight = require 'highlight.js/lib/languages/coffeescript';
@@ -40,6 +41,7 @@ class QuestionSetView extends Backbone.View
     if confirm "Are you sure you want to remove: #{questionLabel}?"
       pullAt(@questionSet.data.questions, [questionIndex]) # Removes element at index questionIndex
       await @questionSet.save()
+      @activeQuestionLabel = null
       @render()
 
   showQuestionTypes: =>
@@ -59,8 +61,8 @@ class QuestionSetView extends Backbone.View
     }
 
     await @questionSet.save()
+    @activeQuestionLabel = label
     @render()
-      
 
   removeProperty: (event) =>
     removePropertyElement = @$(event.target)
@@ -68,12 +70,12 @@ class QuestionSetView extends Backbone.View
     if confirm "Are you sure you want to remove: #{propertyPath}?"
       unset(@questionSet, "data.#{propertyPath}")
       await @questionSet.save()
+      @activeQuestionLabel = removePropertyElement.closest(".questionDiv").attr("data-question-label")
       @render()
 
   addProperty: (event) =>
     addPropertyElement = @$(event.target)
     propertyPath = addPropertyElement.attr("data-property-path")
-    console.log propertyPath[0]
     propertyType = if propertyPath.startsWith("questions[")
       # just want the property part of "questions[1][action_on_change]"
       property = propertyPath.replace(/^.*\[/,"").replace(/\]/,"")
@@ -88,14 +90,26 @@ class QuestionSetView extends Backbone.View
 
     set(@questionSet, "data.#{propertyPath}", initialValue)
     await @questionSet.save()
+    @activeQuestionLabel = addPropertyElement.closest(".questionDiv").attr("data-question-label")
     @render()
+    newElement = $(".questionPropertyName:visible:contains(#{property})")
+    newElement[0].scrollIntoView()
+    newElement.addClass("highlight")
+    newElement.next().addClass("highlight")
+    _.delay =>
+      newElement.removeClass("highlight")
+      newElement.next().removeClass("highlight")
+    , 5000
 
   # Hack because json elements get a class that doesn't bubble events
   clickParent: (event) =>
     $(event.target).parent().click()
 
   toggleNext: (event) =>
-    $(event.target).next().toggle()
+    elementToToggle = $(event.target).next()
+    if elementToToggle.hasClass("questionDiv")
+      @activeQuestionLabel = elementToToggle.attr("data-question-label")
+    elementToToggle.toggle()
 
   edit: (event) =>
     $(event.target).closest("pre").next().show()[0].scrollIntoView
@@ -166,47 +180,53 @@ class QuestionSetView extends Backbone.View
           color: gray;
           padding: 2px;
           border: solid 2px;
-
+        }
+        .highlight{
+          background-color: yellow
         }
 
       </style>
       <h2>Application: <a href='#application/#{Jackfruit.application}'>#{Jackfruit.application}</a></h2>
       <h2>Question Set: #{titleize(@questionSet.name())}</h2>
       <div id='questionSet'>
+        <!--
         <div class='description'>
           Click on any <span style='background-color:black; color:gray; padding:2px;'>dark area</span> below to edit.
         </div>
-        <h2>Question Set Level Configuration</h2>
-        <div class='description'>These options configure the entire question set as opposed to individual questions. For example, this is where you can run code when the page loads or when the question set is marked complete.</div>
-        #{
-          _(@questionSet.data).map (value, property) =>
-            propertyMetadata = QuestionSet.properties[property]
-            if propertyMetadata
-              switch propertyMetadata["data-type"]
-                when "coffeescript", "object"
-                  "
-                    <div>
-                      <div class='questionSetProperty'>
-                        <div class='questionSetPropertyName'>
-                          #{property} <span class='remove clickToEdit' data-property-path='#{property}'>remove</span>
-                          <div class='description'>
-                            #{propertyMetadata.description}
+        -->
+        <h3 style='display:inline'>Configuration</h3>
+        <span class='toggleNext clickToEdit'>Edit</span>
+        <div style='display:none'>
+          <div class='description'>These options configure the entire question set as opposed to individual questions. For example, this is where you can run code when the page loads or when the question set is marked complete.</div>
+          #{
+            _(@questionSet.data).map (value, property) =>
+              propertyMetadata = QuestionSet.properties[property]
+              if propertyMetadata
+                switch propertyMetadata["data-type"]
+                  when "coffeescript", "object"
+                    "
+                      <div>
+                        <div class='questionSetProperty'>
+                          <div class='questionSetPropertyName'>
+                            #{property} <span style='#{if property is "label" then "display:none" else ""}' class='remove clickToEdit' data-property-path='#{property}'>remove</span>
+                            <div class='description'>
+                              #{propertyMetadata.description}
+                            </div>
                           </div>
+                          #{
+                            @renderSyntaxHighlightedCodeWithTextareaForEditing(property)
+                          }
                         </div>
-                        #{
-                          @renderSyntaxHighlightedCodeWithTextareaForEditing(property)
-                        }
                       </div>
-                    </div>
-                  "
-                else
-                  console.error "Unknown type: #{propertyMetadata["data-type"]}: #{value}"
-                  alert "Unhandled type"
-            else
-              return if _(["_id", "_rev", "isApplicationDoc", "collection", "couchapp", "questions"]).contains property
-              console.error "Unknown question set property: #{property}: #{value}"
-          .join("")
-        }
+                    "
+                  else
+                    console.error "Unknown type: #{propertyMetadata["data-type"]}: #{value}"
+                    alert "Unhandled type"
+              else
+                return if _(["_id", "_rev", "isApplicationDoc", "collection", "couchapp", "questions"]).contains property
+                console.error "Unknown question set property: #{property}: #{value}"
+            .join("")
+          }
 
           #{
             allProperties = Object.keys(QuestionSet.properties)
@@ -231,138 +251,149 @@ class QuestionSetView extends Backbone.View
             else
               ""
           }
+        </div>
 
         <h2>Questions</h2>
-        <div class='description'>Below is a list of all of the questions in this question set. You can click on a question below to change it.</div>
+        <div class='description'>Below is a list of all of the questions in this question set. You can click on a question below to change it, or drag the arrows up and down to reorder.</div>
+
+        <div id='questions'>
 
         #{
           _(@questionSet.data.questions).map (question, index) =>
             "
-            <div class='toggleNext question-label'>
-              #{striptags(question.label)}
-            </div>
-            <div style='display:none; margin-left: 10px; padding: 5px; background-color:#DCDCDC'>
-              <div>Properties Configured:</div>
-              #{
-                _(question).map (value, property) =>
-                  propertyMetadata = QuestionSet.questionProperties[property]
-                  if propertyMetadata 
-                    propertyPath = "questions[#{index}][#{property}]"
-                    "
-                    <hr/>
-                    <div class='questionPropertyName'>
-                      #{property} <span class='remove clickToEdit' data-property-path='#{propertyPath}'>remove</span>
-                      
-                      <div class='description'>
-                        #{propertyMetadata.description}
+            <div class='sortable' id='question-div-#{index}'>
+              <div class='toggleNext question-label'>
+                <span class='handle'>&#x2195;</span> #{striptags(question.label)}
+              </div>
+              <div class='questionDiv' data-question-label='#{question.label}' style='display:none; margin-left: 10px; padding: 5px; background-color:#DCDCDC'>
+                <div>Properties Configured:</div>
+                #{
+                  _(question).map (value, property) =>
+                    propertyMetadata = QuestionSet.questionProperties[property]
+                    if propertyMetadata 
+                      propertyPath = "questions[#{index}][#{property}]"
+                      "
+                      <hr/>
+                      <div class='questionPropertyName'>
+                        #{property} <span style='#{if property is "label" or property is "type" then "display:none" else ""}' class='remove clickToEdit' data-property-path='#{propertyPath}'>remove</span>
+                        
+                        <div class='description'>
+                          #{propertyMetadata.description}
+                        </div>
                       </div>
-                    </div>
-                    " +  switch propertyMetadata["data-type"]
-                      when "coffeescript", "text", "json"
-                        "
-                          <div>
-                            <div class='questionProperty'>
-                              #{
-                                @renderSyntaxHighlightedCodeWithTextareaForEditing(propertyPath)
-                              }
+                      " +  switch propertyMetadata["data-type"]
+                        when "coffeescript", "text", "json"
+                          "
+                            <div>
+                              <div class='questionProperty'>
+                                #{
+                                  @renderSyntaxHighlightedCodeWithTextareaForEditing(propertyPath)
+                                }
+                              </div>
                             </div>
-                          </div>
-                        "
-                      when "select"
-                        "
-                          <div>
-                            #{property}: <span style='font-weight:bold'>#{question[property]}</span> 
-                            <span style='margin-left: 10xp; font-size:small;' class='toggleNext clickToEdit'>
-                              update
-                            </span>
+                          "
+                        when "select"
+                          "
+                            <div>
+                              #{property}: <span style='font-weight:bold'>#{question[property]}</span> 
+                              <span style='margin-left: 10xp; font-size:small;' class='toggleNext clickToEdit'>
+                                update
+                              </span>
 
-                            <div style='display:none'>
-                              <select data-property-path='#{propertyPath}'>
-                              #{
-                                _(propertyMetadata.options).map (optionMetadata, option) =>
-                                  "<option #{if option is question[property] then "selected=true" else ""}>#{option}</option>"
-                                .join ""
-                              }
-                              </select>
-                              <button class='save'>Save</button>
-                              <button class='cancel'>Cancel</button>
+                              <div style='display:none'>
+                                <select data-property-path='#{propertyPath}'>
+                                #{
+                                  _(propertyMetadata.options).map (optionMetadata, option) =>
+                                    "<option #{if option is question[property] then "selected=true" else ""}>#{option}</option>"
+                                  .join ""
+                                }
+                                </select>
+                                <button class='save'>Save</button>
+                                <button class='cancel'>Cancel</button>
+                              </div>
                             </div>
-                          </div>
-                        "
-                      when "array"
-                        "
-                          <div>
-                            Items: 
-                            <ul>
-                              #{
-                                _(value.split(/, */)).map (item) =>
-                                  "<li>#{item}</li>"
-                                .join("")
-                              }
-                            </ul>
-                            <span style='margin-left: 10xp; font-size:small;' class='toggleNext clickToEdit'>
-                              update
-                            </span>
-                            <div style='display:none'>
-                              <textarea data-property-path=#{propertyPath}>
-                                #{value}
-                              </textarea>
-                              <button class='save'>Save</button>
-                              <button class='cancel'>Cancel</button>
+                          "
+                        when "array"
+                          value = "Example Option 1, Example Option 2" unless value
+                          "
+                            <div>
+                              Items: 
+                              <ul>
+                                #{
+                                  _(value.split(/, */)).map (item) =>
+                                    "<li>#{item}</li>"
+                                  .join("")
+                                }
+                              </ul>
+                              <span style='margin-left: 10xp; font-size:small;' class='toggleNext clickToEdit'>
+                                update
+                              </span>
+                              <div style='display:none'>
+                                <textarea data-property-path=#{propertyPath}>
+                                  #{value}
+                                </textarea>
+                                <button class='save'>Save</button>
+                                <button class='cancel'>Cancel</button>
+                              </div>
                             </div>
-                          </div>
-                        "
+                          "
 
-                      else
-                        console.error "Unknown type: #{propertyMetadata["data-type"]}: #{value}"
+                        else
+                          console.error "Unknown type: #{propertyMetadata["data-type"]}: #{value}"
+                    else
+                      console.error "Unknown property: #{property}: #{value}"
+                  .join("")
+                  #
+                  #
+
+                }
+                #{
+                  allProperties = Object.keys(QuestionSet.questionProperties)
+                  configuredProperties = Object.keys(question)
+                  availableProperties = _(allProperties).difference(configuredProperties)
+                  if availableProperties.length isnt 0
+                    "
+                    <h3>Unused Question Configuration Options</h3>
+                    <ul>
+                      #{
+                      _(availableProperties).map (property) =>
+                        "<li>
+                          #{property} 
+                          <span 
+                            class='addProperty clickToEdit' 
+                            data-property-path='questions[#{index}][#{property}]'
+                            data-question-index='#{index}'
+                          >
+                            add
+                          </span> 
+                          <span class='description'>#{QuestionSet.questionProperties[property].description}</span>
+                        </li>"
+                      .join("")
+                      }
+                    </ul>
+                    "
                   else
-                    console.error "Unknown property: #{property}: #{value}"
-                .join("")
-                #
-                #
+                    ""
+                }
 
-              }
-              #{
-                allProperties = Object.keys(QuestionSet.questionProperties)
-                configuredProperties = Object.keys(question)
-                availableProperties = _(allProperties).difference(configuredProperties)
-                if availableProperties.length isnt 0
-                  "
-                  <h3>Unused Question Configuration Options</h3>
-                  <ul>
-                    #{
-                    _(availableProperties).map (property) =>
-                      "<li>
-                        #{property} 
-                        <span 
-                          class='addProperty clickToEdit' 
-                          data-property-path='questions[#{index}][#{property}]'>add</span> 
-                        <span class='description'>#{QuestionSet.questionProperties[property].description}</span>
-                      </li>"
-                    .join("")
-                    }
-                  </ul>
-                  "
-                else
-                  ""
-              }
-
-              <span data-question-label='#{question.label}' data-question-index='#{index}' class='removeQuestion clickToEdit'>
-                Remove Question
-              </span>
-              <br/>
-              <br/>
-              <span class='toggleNext clickToEdit'>
-                Edit Question Directly
-              </span>
-              #{
-                @renderSyntaxHighlightedCodeWithTextareaForEditing("questions[#{index}]", "display:none")
-              }
+                <span data-question-label='#{question.label}' data-question-index='#{index}' class='removeQuestion clickToEdit'>
+                  Remove Question
+                </span>
+                <br/>
+                <br/>
+                <span class='toggleNext clickToEdit'>
+                  Edit Question Directly
+                </span>
+                #{
+                  @renderSyntaxHighlightedCodeWithTextareaForEditing("questions[#{index}]", "display:none")
+                }
+              </div>
             </div>
             "
           .join("")
           
         }
+        </div>
         <div style='margin-top:20px'>
           <span class='clickToEdit' id='showQuestionTypes'>Add new question</span>
           <div id='availableQuestionTypes' style='display:none'>
@@ -405,6 +436,21 @@ class QuestionSetView extends Backbone.View
     @$('pre code').each (i, snippet) =>
       hljs.highlightBlock(snippet);
 
+    Sortable.create document.getElementById('questions'),
+      handle: ".handle"
+      onUpdate: (event) =>
+        # Reorder the array
+        # https://stackoverflow.com/a/2440723/266111
+        @questionSet.data.questions.splice(event.newIndex, 0, @questionSet.data.questions.splice(event.oldIndex, 1)[0])
+        await @questionSet.save()
+        @render()
 
+    @openActiveQuestion()
+
+  openActiveQuestion: =>
+    if @activeQuestionLabel
+      questionElement = @$(".toggleNext.question-label:contains(#{@activeQuestionLabel})")
+      questionElement.click()
+      questionElement[0].scrollIntoView()
 
 module.exports = QuestionSetView

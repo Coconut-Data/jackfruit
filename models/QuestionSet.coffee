@@ -47,14 +47,20 @@ QuestionSet.questionProperties =
       "description": "This is the type of question that will be displayed to the user"
       "data-type": "select"
       "options": {
-        "radio":
-          "description": "Allows selection from a list of choices"
         "text":
           "description": "Free text"
-        "autocomplete":
+        "number":
+          "description": "Only allows numbers to be entered"
+        "date":
+          "description": "Allows valid dates"
+        "radio":
+          "description": "Allows selection from a list of choices"
+        "autocomplete from list":
           "description": "Searches for a match with whatever text has been typed to the list of autocomplete options. Also allows non matches to be entered."
-        "autocomplete from previous":
+        "autocomplete from previous entries":
           "description": "Searches for a match with whatever text has been typed to all results that have been entered for this question before. Also allows new options to be chosen."
+        "autocomplete from code":
+          "description": "Searches for a match against the list created by running the code. Also allows new options to be chosen."
         "label":
           "description": "No result is recorded for labels. It is a way to provide extra instructions, create sections or titles on the question set interface."
         "image":
@@ -63,6 +69,8 @@ QuestionSet.questionProperties =
           "description": "Used to set data that doesn't require input from the user."
         "location":
           "description": "Will save the GPS coordinates as reported by the device."
+        "qrcode":
+          "description": "Scan a QR code and save the result as text"
       }
     "autocomplete-options":
       "description": "When type is autocomplete, these are the options that will be matched as the user types. Useful for selecting from a long list of options."
