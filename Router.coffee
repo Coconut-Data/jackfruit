@@ -11,7 +11,7 @@ class Router extends Backbone.Router
 
   applications:
     "Ceshhar": "http://ceshhar.cococloud.co/ceshhar"
-    "Coconut Surveillance": "https://zanzibar.cococloud.co/zanzibar"
+    "Coconut Surveillance Development": "https://zanzibar.cococloud.co/zanzibar-development"
     "Shokishoki": "https://zanzibar.cococloud.co/shokishoki"
     "Local Shokishoki": "http://localhost:5984/shokishoki"
 

@@ -13,6 +13,19 @@ class DefaultView extends Backbone.View
     "click #login": "login"
     "change input#application": "login"
     "click #create": "newQuestionSet"
+    "click #loadOrCreate": "loadOrCreate"
+
+  loadOrCreate: =>
+    databasePath = @$("#databasePath").val()
+    try
+      Jackfruit.application = databasePath.match(/.*\/(.*)/)[1]
+    catch
+      throw "Invalid database path: #{databasePath}"
+
+    database = new PouchDB databasePath
+    database.info().then =>
+      Jackfruit.database = database
+      @selectOrAddQuestion()
 
   newQuestionSet: =>
     newQuestionSetName = @$("#newQuestionSet").val()
@@ -74,7 +87,7 @@ class DefaultView extends Backbone.View
     @$el.html "
       <div>
         <h3>
-          Select a Coconut Application (or enter your own)
+          Select from known Coconut Applications
         </h3>
         <div>
           <input style='font-size:1.5em; margin-left:100px; margin-top:100px;' id='application' list='applications'>
@@ -85,6 +98,11 @@ class DefaultView extends Backbone.View
               ).join("")
             }
           </datalist>
+        </div>
+        <div style='margin-top:20px;'>
+          Or enter a new one:
+          <input id='databasePath'></input>
+          <button id='loadOrCreate'>Load or create</button>
         </div>
       </div>
       <div style='margin-left:100px; margin-top:100px; display:none' id='usernamePassword'>
