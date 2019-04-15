@@ -14,6 +14,7 @@ pullAt = require 'lodash/pullAt'
 isJSON = require('is-json');
 striptags = require 'striptags'
 Sortable = require 'sortablejs'
+global.Coffeescript = require 'coffeescript'
 
 hljs = require 'highlight.js/lib/highlight';
 coffeescriptHighlight = require 'highlight.js/lib/languages/coffeescript';
@@ -33,6 +34,8 @@ class QuestionSetView extends Backbone.View
     "click #showQuestionTypes": "showQuestionTypes"
     "click .addNewQuestion": "addNewQuestion"
     "click .removeQuestion": "removeQuestion"
+    "click .updateTestCode": "updateTestCode"
+    "click .runTestCode": "runTestCode"
 
   removeQuestion: =>
     removeQuestionElement = @$(event.target)
@@ -143,14 +146,82 @@ class QuestionSetView extends Backbone.View
           #{code}
         </code>
       </pre>
-      <div style='display:none'>
-        <textarea data-property-path=#{propertyPath}>
+      <div class='codeEditor' style='display:none'>
+        <textarea style='display:block' class='code' data-property-path=#{propertyPath}>
           #{code}
         </textarea>
         <button class='save'>Save</button>
         <button class='cancel'>Cancel</button>
+        <br/>
+        <br/>
+        <span style='background-color: black; color: gray; padding: 2px; border: solid 2px;' class='toggleNext'>Test It</span>
+        <div style='display:none'>
+          <table>
+            <tr>
+              <td>
+                Set ResultOfQuestion values (e.g. Name: Mike McKay, Birthdate: 2012-11-27)
+              </td>
+              <td>
+                <input class='testResultOfQuestion'></input>
+              </td>
+            <tr>
+              <td>
+                Set the value to use for testing the current value
+              </td>
+              <td>
+                <input class='testValue'></input>
+              </td>
+          </table>
+          <br/>
+          Test Code: <textarea class='testCode'></textarea>
+          <br/>
+          <button class='updateTestCode'>Update Test Code</button>
+          <button class='runTestCode'>Run</button>
+        </div>
       </div>
     "
+
+  updateTestCode: (event) =>
+    codeEditor = $(event.target).closest(".codeEditor")
+    originalCode = codeEditor.find(".code").val()
+    testResultOfQuestion = codeEditor.find(".testResultOfQuestion").val()
+    testValue = codeEditor.find(".testValue").val()
+    testCodeElement = codeEditor.find(".testCode")
+
+    testCodeElement.val """
+      #{
+        if testValue isnt ""
+          "value = '#{testValue}'"
+        else
+          ""
+      }
+
+      #{
+        if testResultOfQuestion isnt ""
+          console.log testResultOfQuestion
+          """
+            ResultOfQuestion = (val) =>
+              switch val
+                #{
+                  (for questionValue in testResultOfQuestion.split(/, */)
+                    [question,value] = questionValue.split(/: */)
+                    "when '#{question}' then '#{value}'"
+                  ).join("\n    ")
+                }
+
+          """
+        else
+          ""
+      }
+      alert(#{originalCode})
+    """
+
+  runTestCode: (event) =>
+    testCodeValue = $(event.target).siblings(".testCode").val()
+    try
+      Coffeescript.eval testCodeValue
+    catch error
+      alert "Error: #{error}"
 
   render: =>
     fullQuestionSetAsPrettyPrintedJSON = JSON.stringify(@questionSet.data, null, 2)
@@ -199,6 +270,7 @@ class QuestionSetView extends Backbone.View
         <div style='display:none'>
           <div class='description'>These options configure the entire question set as opposed to individual questions. For example, this is where you can run code when the page loads or when the question set is marked complete.</div>
           #{
+            console.log @questionSet.data
             _(@questionSet.data).map (value, property) =>
               propertyMetadata = QuestionSet.properties[property]
               if propertyMetadata

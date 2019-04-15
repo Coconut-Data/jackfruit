@@ -10,10 +10,11 @@ QuestionSetView = require './views/QuestionSetView'
 class Router extends Backbone.Router
 
   applications:
-    "Ceshhar": "http://ceshhar.cococloud.co/ceshhar"
+    "Ceshhar": "https://ceshhar.cococloud.co/ceshhar"
     "Coconut Surveillance Development": "https://zanzibar.cococloud.co/zanzibar-development"
     "Shokishoki": "https://zanzibar.cococloud.co/shokishoki"
     "Local Shokishoki": "http://localhost:5984/shokishoki"
+    "Local Kigelia": "http://localhost:5984/kigelia"
 
   routes:
     "application/:applicationName": "application"
