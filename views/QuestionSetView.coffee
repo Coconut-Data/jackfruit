@@ -155,9 +155,7 @@ class QuestionSetView extends Backbone.View
         </code>
       </pre>
       <div class='codeEditor' style='display:none'>
-        <textarea style='display:block' class='code' data-property-path=#{propertyPath}>
-          #{code}
-        </textarea>
+        <textarea style='display:block' class='code' data-property-path=#{propertyPath}>#{code}</textarea>
         <button class='save'>Save</button>
         <button class='cancel'>Cancel</button>
         <br/>
@@ -409,9 +407,7 @@ class QuestionSetView extends Backbone.View
                                 update
                               </span>
                               <div style='display:none'>
-                                <textarea data-property-path=#{propertyPath}>
-                                  #{value}
-                                </textarea>
+                                <textarea data-property-path=#{propertyPath}>#{value}</textarea>
                                 <button class='save'>Save</button>
                                 <button class='cancel'>Cancel</button>
                               </div>
