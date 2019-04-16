@@ -140,6 +140,14 @@ class QuestionSetView extends Backbone.View
     else
       @questionSet.data
     code = JSON.stringify(code, null, 2) if _(code).isObject()
+
+    # https://stackoverflow.com/questions/19913667/javascript-regex-global-match-groups
+    regex = /ResultOfQuestion\("(.+?)"\)/g
+    matches = []
+    questionsReferredTo = []
+    while (matches = regex.exec(code))
+      questionsReferredTo.push("#{matches[1]}: Test Value")
+
     "
       <pre style='#{preStyle}'>
         <code class='toggleToEdit'>
@@ -162,7 +170,7 @@ class QuestionSetView extends Backbone.View
                 Set ResultOfQuestion values (e.g. Name: Mike McKay, Birthdate: 2012-11-27)
               </td>
               <td>
-                <input class='testResultOfQuestion'></input>
+                <input class='testResultOfQuestion' value='#{questionsReferredTo.join(", ")}'></input>
               </td>
             <tr>
               <td>
