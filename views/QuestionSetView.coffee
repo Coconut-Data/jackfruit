@@ -58,10 +58,14 @@ class QuestionSetView extends Backbone.View
       alert("Label for new question can't be empty")
       return
 
-    @questionSet.data.questions.push {
+    newQuestion =
       label: label
       type: type
-    }
+
+    if type is "radio"
+      newQuestion["radio-options"] = "Yes,No"
+
+    @questionSet.data.questions.push newQuestion
 
     await @questionSet.save()
     @activeQuestionLabel = label
@@ -148,12 +152,10 @@ class QuestionSetView extends Backbone.View
     while (matches = regex.exec(code))
       questionsReferredTo.push("#{matches[1]}: Test Value")
 
+    questionsReferredTo = _(questionsReferredTo).unique()
+
     "
-      <pre style='#{preStyle}'>
-        <code class='toggleToEdit'>
-          #{code}
-        </code>
-      </pre>
+      <pre style='#{preStyle}'><code class='toggleToEdit'>#{code}</code></pre>
       <div class='codeEditor' style='display:none'>
         <textarea style='display:block' class='code' data-property-path=#{propertyPath}>#{code}</textarea>
         <button class='save'>Save</button>
@@ -162,24 +164,19 @@ class QuestionSetView extends Backbone.View
         <br/>
         <span style='background-color: black; color: gray; padding: 2px; border: solid 2px;' class='toggleNext'>Test It</span>
         <div style='display:none'>
-          <table>
-            <tr>
-              <td>
-                Set ResultOfQuestion values (e.g. Name: Mike McKay, Birthdate: 2012-11-27)
-              </td>
-              <td>
-                <input class='testResultOfQuestion' value='#{questionsReferredTo.join(", ")}'></input>
-              </td>
-            <tr>
-              <td>
-                Set the value to use for testing the current value
-              </td>
-              <td>
-                <input class='testValue'></input>
-              </td>
-          </table>
+          Set ResultOfQuestion values (e.g. Name: Mike McKay, Birthdate: 2012-11-27 or put each pair on a new line)
           <br/>
-          Test Code: <textarea class='testCode'></textarea>
+          <textarea style='height:60px' class='testResultOfQuestion'>#{questionsReferredTo.join("""\n""")}</textarea>
+          <br/>
+          <br/>
+          Set the value to use for testing the current value
+          <br/>
+          <input class='testValue'></input>
+          <br/>
+          <br/>
+          Test Code: 
+          <br/>
+          <textarea class='testCode'></textarea>
           <br/>
           <button class='updateTestCode'>Update Test Code</button>
           <button class='runTestCode'>Run</button>
@@ -193,6 +190,7 @@ class QuestionSetView extends Backbone.View
     testResultOfQuestion = codeEditor.find(".testResultOfQuestion").val()
     testValue = codeEditor.find(".testValue").val()
     testCodeElement = codeEditor.find(".testCode")
+    typeOfCode = codeEditor.closest(".code").attr("data-type-of-code")
 
     testCodeElement.val """
       #{
@@ -200,26 +198,33 @@ class QuestionSetView extends Backbone.View
           "value = '#{testValue}'"
         else
           ""
-      }
-
-      #{
+      }#{
         if testResultOfQuestion isnt ""
-          console.log testResultOfQuestion
           """
             ResultOfQuestion = (val) =>
               switch val
                 #{
-                  (for questionValue in testResultOfQuestion.split(/, */)
+                  (for questionValue in testResultOfQuestion.split(/ *(,|\n) */)
                     [question,value] = questionValue.split(/: */)
                     "when '#{question}' then '#{value}'"
                   ).join("\n    ")
                 }
 
           """
-        else
-          ""
+        else ""
       }
-      alert(#{originalCode})
+      result = #{originalCode}
+
+      #{
+        switch typeOfCode
+          when "validation"
+            """alert(if result? then "\#{result}: Not Valid" else "Valid")"""
+          when "skip_logic"
+            """alert(if result then "\#{result}: Skipped" else "\#{result}: Not Skipped")"""
+          else
+            """alert(result)"""
+      }
+
     """
 
   runTestCode: (event) =>
@@ -363,7 +368,7 @@ class QuestionSetView extends Backbone.View
                         when "coffeescript", "text", "json"
                           "
                             <div>
-                              <div class='questionProperty'>
+                              <div data-type-of-code='#{property}' class='questionProperty code'>
                                 #{
                                   @renderSyntaxHighlightedCodeWithTextareaForEditing(propertyPath)
                                 }
@@ -379,7 +384,7 @@ class QuestionSetView extends Backbone.View
                               </span>
 
                               <div style='display:none'>
-                                <select data-property-path='#{propertyPath}'>
+                                <select style='display:block' data-property-path='#{propertyPath}'>
                                 #{
                                   _(propertyMetadata.options).map (optionMetadata, option) =>
                                     "<option #{if option is question[property] then "selected=true" else ""}>#{option}</option>"
@@ -407,7 +412,7 @@ class QuestionSetView extends Backbone.View
                                 update
                               </span>
                               <div style='display:none'>
-                                <textarea data-property-path=#{propertyPath}>#{value}</textarea>
+                                <textarea style='display:block' data-property-path=#{propertyPath}>#{value}</textarea>
                                 <button class='save'>Save</button>
                                 <button class='cancel'>Cancel</button>
                               </div>

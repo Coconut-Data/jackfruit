@@ -53,7 +53,7 @@ QuestionSet.questionProperties =
           "description": "Only allows numbers to be entered"
         "date":
           "description": "Allows valid dates"
-        "datetime":
+        "datetime-local":
           "description": "Allows valid datetimes"
         "radio":
           "description": "Allows selection from a list of choices"
