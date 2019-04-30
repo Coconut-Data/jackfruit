@@ -43,6 +43,7 @@ class QuestionSetView extends Backbone.View
     questionLabel = removeQuestionElement.attr("data-question-label")
     if confirm "Are you sure you want to remove: #{questionLabel}?"
       pullAt(@questionSet.data.questions, [questionIndex]) # Removes element at index questionIndex
+      @changesWatcher.cancel()
       await @questionSet.save()
       @activeQuestionLabel = null
       @render()
@@ -67,6 +68,7 @@ class QuestionSetView extends Backbone.View
 
     @questionSet.data.questions.push newQuestion
 
+    @changesWatcher.cancel()
     await @questionSet.save()
     @activeQuestionLabel = label
     @render()
@@ -76,6 +78,7 @@ class QuestionSetView extends Backbone.View
     propertyPath = removePropertyElement.attr("data-property-path")
     if confirm "Are you sure you want to remove: #{propertyPath}?"
       unset(@questionSet, "data.#{propertyPath}")
+      @changesWatcher.cancel()
       await @questionSet.save()
       @activeQuestionLabel = removePropertyElement.closest(".questionDiv").attr("data-question-label")
       @render()
@@ -96,6 +99,7 @@ class QuestionSetView extends Backbone.View
       else null
 
     set(@questionSet, "data.#{propertyPath}", initialValue)
+    @changesWatcher.cancel()
     await @questionSet.save()
     @activeQuestionLabel = addPropertyElement.closest(".questionDiv").attr("data-question-label")
     @render()
@@ -134,6 +138,7 @@ class QuestionSetView extends Backbone.View
     updatedValue = updatedElement.val()
     updatedValue = JSON.parse(updatedValue) if isJSON(updatedValue)
     set(@questionSet, "data.#{propertyPath}", updatedValue)
+    @changesWatcher.cancel()
     @questionSet.save().then =>
       @render()
 
@@ -517,16 +522,39 @@ class QuestionSetView extends Backbone.View
     @$('pre code').each (i, snippet) =>
       hljs.highlightBlock(snippet);
 
-    Sortable.create document.getElementById('questions'),
+    @sortable = Sortable.create document.getElementById('questions'),
       handle: ".handle"
       onUpdate: (event) =>
         # Reorder the array
         # https://stackoverflow.com/a/2440723/266111
+        @sortable.option("disabled", true)
         @questionSet.data.questions.splice(event.newIndex, 0, @questionSet.data.questions.splice(event.oldIndex, 1)[0])
+        @changesWatcher.cancel()
         await @questionSet.save()
         @render()
+        @sortable.option("disabled", false)
 
     @openActiveQuestion()
+    Jackfruit.database.changes
+      limit:1
+      descending:true
+    .then (change) =>  
+      console.log change.last_seq
+      @changesWatcher = Jackfruit.database.changes
+        live: true
+        doc_ids: [router.questionSetView.questionSet.data.id]
+        since: change.last_seq
+      .on "change", (change) =>
+        console.log change
+        @changesWatcher.cancel()
+        if confirm("This question set has changed - someone else might be working on it. Would you like to refresh?")
+          @questionSet.fetch().then => @render()
+
+
+
+
+
+
 
   openActiveQuestion: =>
     if @activeQuestionLabel

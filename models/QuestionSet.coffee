@@ -10,6 +10,10 @@ class QuestionSet
     .catch (error) =>
       alert "Error saving: #{JSON.stringify error}"
 
+  fetch: =>
+    Jackfruit.database.get(@data.id).then (@data) =>
+      Promise.resolve()
+
   name: => @data._id
 
 QuestionSet.fetch = (docId) =>
@@ -66,13 +70,15 @@ QuestionSet.questionProperties =
         "label":
           "description": "No result is recorded for labels. It is a way to provide extra instructions, create sections or titles on the question set interface."
         "image":
-          "description": "Displays an image." # TODO describe how this works, paths to the image, etc
+          "description": "Displays an image. TODO describe how this works." # TODO describe how this works, paths to the image, etc
         "hidden":
           "description": "Used to set data that doesn't require input from the user."
         "location":
           "description": "Will save the GPS coordinates as reported by the device."
         "qrcode":
           "description": "Scan a QR code and save the result as text"
+        "repeatableQuestionSet":
+          "description": "Use another question set to insert a section of repeable questions"
       }
     "autocomplete-options":
       "description": "When type is autocomplete, these are the options that will be matched as the user types. Useful for selecting from a long list of options."
@@ -98,6 +104,10 @@ QuestionSet.questionProperties =
       ]
     "label": 
       "description": "The text for the question that will be displayed on screen"
+      "data-type": "text"
+      "required": true
+    "repeatableQuestionSetName": 
+      "description": "The name of the question set to be inserted as a repeateable section"
       "data-type": "text"
       "required": true
   }
