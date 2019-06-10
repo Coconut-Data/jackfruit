@@ -41,6 +41,8 @@ class Router extends Backbone.Router
       @defaultView.render()
 
   setupDatabase: (applicationName) =>
+    if Jackfruit.database?
+      return Promise.resolve()
     Jackfruit.application = applicationName
     database = new PouchDB @applications[Jackfruit.application], 
       auth:

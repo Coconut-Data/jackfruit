@@ -351,7 +351,13 @@ class QuestionSetView extends Backbone.View
             "
             <div class='sortable' id='question-div-#{index}'>
               <div class='toggleNext question-label'>
-                <span class='handle'>&#x2195;</span> #{striptags(question.label)}
+                <span class='handle'>&#x2195;</span> 
+                #{striptags(question.label)}
+                <div style='margin-left: 20px; font-weight:normal;font-size:small'>
+                  #{if question["radio-options"] then "<div>#{question["radio-options"]}</div>" else ""}
+                  #{if question["skip_logic"] then "<div>Skip if: <span style='font-family:monospace'>#{question["skip_logic"]}</span></div>" else ""}
+                </div>
+
               </div>
               <div class='questionDiv' data-question-label='#{question.label}' style='display:none; margin-left: 10px; padding: 5px; background-color:#DCDCDC'>
                 <div>Properties Configured:</div>
@@ -542,7 +548,7 @@ class QuestionSetView extends Backbone.View
       console.log change.last_seq
       @changesWatcher = Jackfruit.database.changes
         live: true
-        doc_ids: [router.questionSetView.questionSet.data.id]
+        doc_ids: [router.questionSetView.questionSet.data._id]
         since: change.last_seq
       .on "change", (change) =>
         console.log change

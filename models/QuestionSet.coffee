@@ -11,7 +11,7 @@ class QuestionSet
       alert "Error saving: #{JSON.stringify error}"
 
   fetch: =>
-    Jackfruit.database.get(@data.id).then (@data) =>
+    Jackfruit.database.get(@data._id).then (@data) =>
       Promise.resolve()
 
   name: => @data._id
