@@ -25,6 +25,7 @@
     "jsoneditor": "^5.26.2",
     "livereloadify": "^2.0.0",
     "lodash": "^4.17.11",
+    "nano": "^8.1.0",
     "node-static": "^0.7.11",
     "pouchdb": "^7.0.0",
     "sortablejs": "^1.8.3",

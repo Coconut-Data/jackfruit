@@ -2,7 +2,6 @@ $ = require 'jquery'
 Backbone = require 'backbone'
 Backbone.$  = $
 _ = require 'underscore'
-global.Cookie = require 'js-cookie'
 dasherize = require("underscore.string/dasherize")
 titleize = require("underscore.string/titleize")
 humanize = require("underscore.string/humanize")
@@ -36,6 +35,15 @@ class QuestionSetView extends Backbone.View
     "click .removeQuestion": "removeQuestion"
     "click .updateTestCode": "updateTestCode"
     "click .runTestCode": "runTestCode"
+    "click #deploy": "deploy"
+
+  deploy: =>
+    target = prompt("Target URL (e.g. https://username:password@example.com/foo)?")
+    if confirm "Are you sure you want to deploy #{@questionSet.name()} at #{await Jackfruit.database.name} to #{target}?"
+      Jackfruit.database.replicate.to target,
+        doc_ids: [@questionSet.name()]
+      .on "error", => alert error
+      .on "complete", => alert JSON.stringify(result)
 
   removeQuestion: =>
     removeQuestionElement = @$(event.target)
@@ -273,7 +281,7 @@ class QuestionSetView extends Backbone.View
         }
 
       </style>
-      <h2>Application: <a href='#application/#{Jackfruit.application}'>#{Jackfruit.application}</a></h2>
+      <h2>Application: #{Jackfruit.databaseName} <button id='deploy'>Deploy</button></h2>
       <h2>Question Set: #{titleize(@questionSet.name())}</h2>
       <div id='questionSet'>
         <!--
