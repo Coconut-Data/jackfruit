@@ -36,6 +36,24 @@ class QuestionSetView extends Backbone.View
     "click .updateTestCode": "updateTestCode"
     "click .runTestCode": "runTestCode"
     "click #deploy": "deploy"
+    "click #update": "update"
+    "click #addIdsToCeshharQuestions": "addIdsToCeshharQuestions"
+
+  # Legacy support
+  addIdsToCeshharQuestions: =>
+    updatedQuestions = for question in @questionSet.data.questions
+      unless question.id?
+        question.id = "#{
+          parseInt(_(router.questionSetView.questionSet.data.questions).chain().pluck("id").max().value()) + 1
+        }"
+        console.log "added id for #{JSON.stringify question}"
+        question
+      else
+        question
+
+    @questionSet.data.questions = updatedQuestions
+    await @questionSet.save()
+    @render()
 
   deploy: =>
     target = prompt("Target URL (e.g. https://username:password@example.com/foo)?")
@@ -44,6 +62,17 @@ class QuestionSetView extends Backbone.View
         doc_ids: [@questionSet.name()]
       .on "error", => alert error
       .on "complete", => alert JSON.stringify(result)
+      .on "denied", => alert "Denied - wrong authentication?"
+      .on "change", (change) => console.log change
+
+  update: =>
+    source = new PouchDB(prompt("Source URL (e.g. https://username:password@example.com/foo)?"))
+    doc = await source.get @questionSet.name()
+    if doc and confirm "Are you sure you want to update #{@questionSet.name()} from #{source} to #{await Jackfruit.database.name}? This will lose any changes you may have made to #{Jackfruit.database.name}."
+      await Jackfruit.database.remove(@questionSet.data)
+      delete doc._rev
+      await Jackfruit.database.put doc
+      document.location.reload()
 
   removeQuestion: =>
     removeQuestionElement = @$(event.target)
@@ -79,6 +108,9 @@ class QuestionSetView extends Backbone.View
     @changesWatcher.cancel()
     await @questionSet.save()
     @activeQuestionLabel = label
+    # legacy hack
+    if @databaseName.match(/ceshhar/)
+      @addIdsToCeshharQuestions()
     @render()
 
   removeProperty: (event) =>
@@ -281,7 +313,17 @@ class QuestionSetView extends Backbone.View
         }
 
       </style>
-      <h2>Application: #{Jackfruit.databaseName} <button id='deploy'>Deploy</button></h2>
+      <h2>Application: <a href='#database/#{@serverName}/#{@databaseName}'>#{Jackfruit.databaseName}</a>
+      #{
+        if Jackfruit.databaseName.match(/develop/) 
+          "
+          <button id='deploy'>Deploy To Production</button>
+          <button id='update'>Update From Production</button>
+          "
+        else
+          ""
+      }
+      </h2>
       <h2>Question Set: #{titleize(@questionSet.name())}</h2>
       <div id='questionSet'>
         <!--
@@ -291,6 +333,10 @@ class QuestionSetView extends Backbone.View
         -->
         <h3 style='display:inline'>Configuration</h3>
         <span class='toggleNext clickToEdit'>Edit</span>
+
+        <h3><a href='#results/#{@serverName}/#{@databaseName}/#{@questionSet.name()}'>Results</a></h3>
+        <span class='toggleNext clickToEdit'>Edit</span>
+
         <div style='display:none'>
           <div class='description'>These options configure the entire question set as opposed to individual questions. For example, this is where you can run code when the page loads or when the question set is marked complete.</div>
           #{

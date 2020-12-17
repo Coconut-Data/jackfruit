@@ -1,4 +1,7 @@
 Backbone = require 'backbone'
+Passphrase = require 'xkcd-passphrase'
+
+crypto = require('crypto')
 
 class ServerView extends Backbone.View
 
@@ -10,15 +13,25 @@ class ServerView extends Backbone.View
     .then (databaseList) =>
 
       @$el.html "
+        <style>
+          li {
+            padding-top: 2em;
+          }
+          li a{
+            font-size: 2em;
+          }
+        </style>
         <h1>Select a database:</h1>
         #{
           (for database in databaseList
             continue if database.startsWith("_")
+            continue if database.match(/backup/)
+            continue if database.startsWith("plugin")
             "<li style='height:50px;'><a href='#database/#{Jackfruit.serverName}/#{database}'>#{database}</a></li>"
           ).join("")
         }
         <h1>Create a new database:</h1>
-        Database Name: <input name='databaseName'></input>
+        Database Name: <input id='databaseName'></input>
         <br/>
         <button id='newDatabase'>Create</button>
       "
@@ -42,12 +55,56 @@ class ServerView extends Backbone.View
     "click #newDatabase": "newDatabase"
 
   newDatabase: =>
-    newDatabaseName = @$("#newDatabase").val()
-    @databaseServer().db.create(newDatabaseName)
-    .then =>
-      router.navigate "database/#{newDatabaseName}", trigger:true
+    username = Cookie.get("username")
+    password = Cookie.get("password")
+    Jackfruit.databaseName = @$("#databaseName").val()
+    newUser = await Passphrase.generateWithWordCount(1)
+    newPassword = await Passphrase.generateWithWordCount(1)
+
+    alert "Creating user: #{newUser} with password: #{newPassword} as the initial user. (You will need this to login)"
+
+    serverUrlWithCredentials = "#{Jackfruit.knownDatabaseServers[Jackfruit.serverName]}".replace(/:\/\//, "://#{username}:#{password}@")
+    console.log "#{serverUrlWithCredentials}/#{Jackfruit.databaseName}"
+    Jackfruit.database = new PouchDB("#{serverUrlWithCredentials}/#{Jackfruit.databaseName}")
+
+    await Jackfruit.database.bulkDocs [
+      {
+        _id: "client encryption key"
+        key: await Passphrase.generate()
+      }
+      {
+        _id: '_design/questions',
+        language: "coffeescript",
+        views:
+          questions:
+            map: "(doc) ->\n  if doc.collection and doc.collection is \"question\"\n    emit doc._id\n"
+      }
+      {
+        _id: "_design/docIDsForUpdating",
+        language: "coffeescript",
+        views:
+          docIDsForUpdating:
+            map: "(doc) ->\n  emit(doc._id, null) if doc.collection is \"user\" or doc.collection is \"question\"\n  emit(doc._id, null) if doc.isApplicationDoc is true\n"
+      }
+      {
+        _id: "user.#{newUser}"
+        password: (crypto.pbkdf2Sync newPassword, "", 1000, 256/8, 'sha256').toString('base64')
+        isApplicationDoc: true,
+        comments: "Test user",
+        roles: [
+          "admin"
+        ],
+        collection: "user",
+      }
+
+    ]
     .catch (error) => 
-      alert error
+      console.error error
+      alert JSON.stringify error
+
+    router.navigate "database/#{Jackfruit.serverName}/#{Jackfruit.databaseName}", trigger:true
+
+
 
   updateUsernamePassword: =>
     Cookie.set "username", @$('#username').val()
@@ -81,7 +138,5 @@ class ServerView extends Backbone.View
         else
           result = await response.json()
           resolve(result)
-
-
 
 module.exports = ServerView

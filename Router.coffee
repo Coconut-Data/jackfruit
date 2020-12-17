@@ -6,6 +6,7 @@ humanize = require 'underscore.string/humanize'
 
 DefaultView = require './views/DefaultView'
 QuestionSetView = require './views/QuestionSetView'
+ResultsView = require './views/ResultsView'
 SelectServerView = require './views/SelectServerView'
 ServerView = require './views/ServerView'
 DatabaseView = require './views/DatabaseView'
@@ -24,6 +25,7 @@ class Router extends Backbone.Router
     "select/server": "selectServer"
     "server/:serverName": "showServer"
     "database/:serverName/:databaseName": "showDatabase"
+    "results/:serverName/:databaseName/:questionSetDocId": "results"
     "questionSet/:serverName/:databaseName/:questionSetDocId": "questionSet"
     "questionSet/:serverName/:databaseName/:questionSetDocId/:question": "questionSet"
     "logout": "logout"
@@ -57,6 +59,17 @@ class Router extends Backbone.Router
     @questionSetView.questionSet = await QuestionSet.fetch(questionSetDocId)
     @questionSetView.activeQuestionLabel = question
     @questionSetView.render()
+
+  results: (serverName, databaseName, questionSetDocId, question) =>
+    await @setupDatabase(serverName, databaseName)
+    @resultsView ?= new ResultsView()
+    @resultsView.serverName = serverName
+    @resultsView.databaseName = databaseName
+    @resultsView.setElement $("#content")
+    @resultsView.questionSet = await QuestionSet.fetch(questionSetDocId)
+    @resultsView.activeQuestionLabel = question
+    @resultsView.render()
+
 
   setupDatabase: (serverName, databaseName) =>
     @username = Cookie.get("username")

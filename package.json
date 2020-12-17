@@ -25,14 +25,22 @@
     "jsoneditor": "^5.26.2",
     "livereloadify": "^2.0.0",
     "lodash": "^4.17.11",
+    "moment": "^2.24.0",
     "nano": "^8.1.0",
     "node-static": "^0.7.11",
     "pouchdb": "^7.0.0",
+    "pouchdb-adapter-http": "^7.2.2",
+    "pouchdb-core": "^7.2.2",
+    "pouchdb-mapreduce": "^7.2.2",
+    "pouchdb-replication": "^7.2.2",
+    "pouchdb-upsert": "^2.2.0",
     "sortablejs": "^1.8.3",
     "striptags": "^3.1.1",
+    "tabulator-tables": "^4.8.0",
     "underscore": "^1.9.1",
     "underscore.string": "^3.3.5",
-    "watchify": "^3.11.0"
+    "watchify": "^3.11.0",
+    "xkcd-passphrase": "^3.3.3"
   },
   "devDependencies": {
     "terser": "^3.16.1"

@@ -1,4 +1,3 @@
-global.PouchDB = require 'pouchdb'
 _ = require 'underscore'
 
 class QuestionSet
@@ -81,7 +80,7 @@ QuestionSet.questionProperties =
           "description": "Use another question set to insert a section of repeable questions"
       }
     "autocomplete-options":
-      "description": "When type is autocomplete, these are the options that will be matched as the user types. Useful for selecting from a long list of options."
+      "description": "When type is autocomplete, these are the options that will be matched as the user types. Useful for selecting from a long list of options. When autocomplete from code is chosen, this will be code, but it needs to be javascript not coffeescript"
       "requires-type": "autocomplete"
       "data-type": "array"
     "radio-options":
