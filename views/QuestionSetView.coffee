@@ -92,18 +92,20 @@ class QuestionSetView extends Backbone.View
     addNewQuestionTypeElement = @$(event.target)
     type = addNewQuestionTypeElement.attr("data-question-type")
     label = @$("#newQuestionLabel").val()
-    if label is ""
-      alert("Label for new question can't be empty")
-      return
 
-    newQuestion =
-      label: label
-      type: type
+    # Try and use templates or just create a simple one if it doesn't exist
+    template = QuestionSet.templateForPropertyType(type) or [
+      {
+        label: label
+        type: type
+      }
+    ]
 
-    if type is "radio"
-      newQuestion["radio-options"] = "Yes,No"
-
-    @questionSet.data.questions.push newQuestion
+    for newQuestion in template
+      if newQuestion.label is ""
+        alert("Label for new question can't be empty")
+        return
+      @questionSet.data.questions.push newQuestion
 
     @changesWatcher.cancel()
     await @questionSet.save()
@@ -550,7 +552,8 @@ class QuestionSetView extends Backbone.View
             Choose the type of question to add:
             <ul>
             #{
-              (for questionType, metadata of QuestionSet.questionProperties.type.options
+              #(for questionType, metadata of QuestionSet.questionProperties.type.options
+              (for questionType, metadata of QuestionSet.getQuestionProperties().type.options
                 "
                 <li>
                   <span>#{questionType}</span>

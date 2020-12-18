@@ -35,10 +35,24 @@ QuestionSet.properties =
       "data-type": "object"
   }
 
+QuestionSet.templateForPropertyType = (type) =>
+  properties = QuestionSet.getQuestionProperties()
+  properties.type.options[type]?.template
+
 QuestionSet.propertyList = =>
   _(QuestionSet.properties()).keys()
 
-QuestionSet.questionProperties =
+QuestionSet.getQuestionProperties = =>
+
+  properties = QuestionSet.questionProperties
+  # Add in plugin properties
+  # Note that this changes the object, it doesn't create a copy
+  for plugin in Jackfruit.databasePlugins
+    _(properties.type.options).extend plugin?.jackfruit?.types
+  properties
+
+
+QuestionSet.questionProperties  =
   {
     "action_on_change":
       "description":"Coffeescript code that will be executed after the answer to this question changes"
@@ -60,6 +74,10 @@ QuestionSet.questionProperties =
           "description": "Allows valid datetimes"
         "radio":
           "description": "Allows selection from a list of choices"
+          template: [
+            type: "radio"
+            "radio-options": "Yes,No"
+          ]
         "autocomplete from list":
           "description": "Searches for a match with whatever text has been typed to the list of autocomplete options. Also allows non matches to be entered."
         "autocomplete from previous entries":

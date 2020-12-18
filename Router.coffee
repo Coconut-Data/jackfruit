@@ -79,6 +79,13 @@ class Router extends Backbone.Router
     console.log serverUrlWithCredentials
     Jackfruit.database = new PouchDB("#{serverUrlWithCredentials}/#{databaseName}")
     Jackfruit.databaseName = databaseName
+    Jackfruit.databasePlugins = await Jackfruit.database.allDocs
+      startkey: "_design/plugin-"
+      endkey: "_design/plugin-\uf000"
+      include_docs: true
+    .then (result) =>
+      Promise.resolve(_(result?.rows).pluck "doc")
+
     Jackfruit.database.info()
     .catch =>
       @showServer()
