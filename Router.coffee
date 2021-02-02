@@ -72,6 +72,7 @@ class Router extends Backbone.Router
 
 
   setupDatabase: (serverName, databaseName) =>
+    Jackfruit.serverName = serverName
     @username = Cookie.get("username")
     @password = Cookie.get("password")
     console.log @username

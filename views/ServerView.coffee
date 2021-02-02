@@ -6,11 +6,13 @@ crypto = require('crypto')
 class ServerView extends Backbone.View
 
   render: =>
+    @taskDatabase = new PouchDB("#{@getServerUrlWithCredentials()}/server_tasks")
 
     @login()
     .catch =>
       return @renderLoginForm()
     .then (databaseList) =>
+      console.log databaseList
 
       @$el.html "
         <style>
@@ -34,7 +36,28 @@ class ServerView extends Backbone.View
         Database Name: <input id='databaseName'></input>
         <br/>
         <button id='newDatabase'>Create</button>
+
+        <h2>Every Day At Midnight</h2>
+        <textarea id='daily'>
+        #{
+          await @taskDatabase.get "daily"
+          .then (doc) => Promise.resolve doc.code
+          .catch (error) => Promise.resolve("")
+        }
+        </textarea>
+        <button id='daily-button''>Update</button>
+
+        <h2>Every 5 Minutes</h2>
+        <textarea id='five-minutes'>
+        #{
+          await @taskDatabase.get "five-minutes"
+          .then (doc) => Promise.resolve doc.code
+          .catch (error) => Promise.resolve("")
+        }
+        </textarea>
+        <button id='five-minutes-button''>Update</button>
       "
+
 
   renderLoginForm: =>
     @$el.html "
@@ -53,19 +76,28 @@ class ServerView extends Backbone.View
   events: =>
     "click #login": "updateUsernamePassword"
     "click #newDatabase": "newDatabase"
+    "click #daily-button": "updateTasks"
+    "click #five-minutes-button": "updateTasks"
 
-  newDatabase: =>
+  updateTasks: (event) =>
+    dailyOrFiveMinutes = event.target.getAttribute("id")?.replace(/-button/,"")
+    await @taskDatabase.upsert dailyOrFiveMinutes, =>
+      _id: dailyOrFiveMinutes
+      code: @$("##{dailyOrFiveMinutes}").val()
+    @render()
+
+  getServerUrlWithCredentials: =>
     username = Cookie.get("username")
     password = Cookie.get("password")
-    Jackfruit.databaseName = @$("#databaseName").val()
+    "#{Jackfruit.knownDatabaseServers[Jackfruit.serverName]}".replace(/:\/\//, "://#{username}:#{password}@")
+
+  newDatabase: =>
     newUser = await Passphrase.generateWithWordCount(1)
     newPassword = await Passphrase.generateWithWordCount(1)
-
     alert "Creating user: #{newUser} with password: #{newPassword} as the initial user. (You will need this to login)"
 
-    serverUrlWithCredentials = "#{Jackfruit.knownDatabaseServers[Jackfruit.serverName]}".replace(/:\/\//, "://#{username}:#{password}@")
-    console.log "#{serverUrlWithCredentials}/#{Jackfruit.databaseName}"
-    Jackfruit.database = new PouchDB("#{serverUrlWithCredentials}/#{Jackfruit.databaseName}")
+    Jackfruit.databaseName = @$("#databaseName").val()
+    Jackfruit.database = new PouchDB("#{@getServerUrlWithCredentials()}/#{Jackfruit.databaseName}")
 
     await Jackfruit.database.bulkDocs [
       {

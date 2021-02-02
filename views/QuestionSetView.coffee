@@ -68,7 +68,7 @@ class QuestionSetView extends Backbone.View
   update: =>
     source = new PouchDB(prompt("Source URL (e.g. https://username:password@example.com/foo)?"))
     doc = await source.get @questionSet.name()
-    if doc and confirm "Are you sure you want to update #{@questionSet.name()} from #{source} to #{await Jackfruit.database.name}? This will lose any changes you may have made to #{Jackfruit.database.name}."
+    if doc and confirm "Are you sure you want to update #{@questionSet.name()} from #{source.name} to #{await Jackfruit.database.name}? This will lose any changes you may have made to #{Jackfruit.database.name}."
       await Jackfruit.database.remove(@questionSet.data)
       delete doc._rev
       await Jackfruit.database.put doc
@@ -333,10 +333,10 @@ class QuestionSetView extends Backbone.View
           Click on any <span style='background-color:black; color:gray; padding:2px;'>dark area</span> below to edit.
         </div>
         -->
-        <h3 style='display:inline'>Configuration</h3>
-        <span class='toggleNext clickToEdit'>Edit</span>
 
         <h3><a href='#results/#{@serverName}/#{@databaseName}/#{@questionSet.name()}'>Results</a></h3>
+
+        <h3 style='display:inline'>Configuration</h3>
         <span class='toggleNext clickToEdit'>Edit</span>
 
         <div style='display:none'>

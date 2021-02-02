@@ -6,6 +6,8 @@ dasherize = require("underscore.string/dasherize")
 titleize = require("underscore.string/titleize")
 humanize = require("underscore.string/humanize")
 slugify = require("underscore.string/slugify")
+underscored = require("underscore.string/underscored")
+
 
 Tabulator = require 'tabulator-tables'
 
@@ -20,8 +22,8 @@ class ResultsView extends Backbone.View
   getResults: =>
     questionSetName = @questionSet.name()
     resultDocs = await Jackfruit.database.allDocs
-      startkey: "result-#{questionSetName.toLowerCase()}"
-      endkey: "result-#{questionSetName.toLowerCase()}-\ufff0"
+      startkey: "result-#{underscored(questionSetName.toLowerCase())}"
+      endkey: "result-#{underscored(questionSetName.toLowerCase())}-\ufff0"
       include_docs: true
     .then (result) => Promise.resolve _(result.rows)?.pluck "doc"
 

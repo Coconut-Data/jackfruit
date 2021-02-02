@@ -31,6 +31,20 @@ class DatabaseView extends Backbone.View
         <h1>#{@databaseName}</h1>
         <h2>Select a question set</h2>
         <div id='questions'/>
+        <br/>
+        <br/>
+        #{
+          if Jackfruit.databaseName.match(/develop/) 
+            "
+            <button id='differences'>Show differences with Production (TODO)</button>
+            <button id='updateFromProduction'>Update All Question Sets from Production</button>
+            "
+          else
+            ""
+        }
+
+        <br/>
+        <br/>
         <h2>Create a new question set</h2>
         <div>
           <input id='newQuestionSet'/>
@@ -47,8 +61,24 @@ class DatabaseView extends Backbone.View
         <div id='users'></div>
 
       "
+      @questionSets = []
       @$("#questions").html (for row in result.rows
-        "<li><a href='#questionSet/#{@serverName}/#{@databaseName}/#{row.id}'>#{row.id}</a></li>"
+        @questionSets.push row.id
+        "
+        <li>
+          <a href='#questionSet/#{@serverName}/#{@databaseName}/#{row.id}'>#{row.id}</a> 
+          <button class='copy' data-question='#{row.id}'>Copy</button> 
+          <button class='rename' data-question='#{row.id}'>Rename</button> 
+          #{
+            if Jackfruit.canCreateDesignDoc()
+              "
+              <button class='remove' data-question='#{row.id}'>Remove</button> 
+              "
+            else
+              ""
+          }
+        </li>
+        "
       ).join("")
 
       @loadPluginData()
@@ -56,6 +86,9 @@ class DatabaseView extends Backbone.View
       @usersView = new UsersView()
       @usersView.setElement @$("#users")
       @usersView.render()
+
+      unless await Jackfruit.canCreateDesignDoc()
+        @$("#activePlugins").before "Plugins can only be changed by administrators"
 
 
   loadPluginData: =>
@@ -92,6 +125,51 @@ class DatabaseView extends Backbone.View
     "click #create": "newQuestionSet"
     "change #selectPlugin": "addPlugin"
     "click .updatePlugin": "updatePlugin"
+    "click .copy": "copy"
+    "click .rename": "rename"
+    "click .remove": "remove"
+    "click #updateFromProduction": "updateFromProduction"
+
+  updateFromProduction: =>
+    source = new PouchDB(prompt("Source URL (e.g. https://username:password@example.com/foo)?"))
+    for questionSetId in @questionSets
+      questionSet = await QuestionSet.fetch(questionSetId)
+      doc = await source.get questionSet.name()
+      if doc and confirm "Are you sure you want to update #{questionSet.name()} from #{source.name} to #{await Jackfruit.database.name}? This will lose any changes you may have made to #{Jackfruit.database.name} in development."
+        $("#content").html "<br/><br/>Updating #{questionSet.name()} from #{source.name}... development"
+        await Jackfruit.database.remove(questionSet.data)
+        delete doc._rev
+        await Jackfruit.database.put doc
+
+    $("#content").html "<br/><br/>Finished, refreshing in 1 second."
+    _.delay =>
+      document.location.reload()
+    , 1000
+
+  copy: (event, renderOnDone = true) =>
+    question = event.target.getAttribute("data-question")
+    questionDoc = await Jackfruit.database.get question
+    delete questionDoc._rev
+    questionDoc._id = prompt("Name: ")
+    if questionDoc._id is question or questionDoc._id is ""
+      alert "Name must be different and not empty"
+      return null
+    console.log questionDoc
+    await Jackfruit.database.put questionDoc
+    @render() if renderOnDone
+
+  rename: (event) =>
+    unless await(@copy(event, false)) is false #only remove if copy succeeds!
+      await @remove(event, false)
+      @render()
+
+  remove: (event, promptToDelete = true, renderOnDone = true) =>
+    question = event.target.getAttribute("data-question")
+    if not promptToDelete or confirm "Are you sure you want to remove #{question}?"
+      if not promptToDelete or prompt("Confirm the name of question that you want to remove:") is question
+        questionDoc = await Jackfruit.database.get question
+        await Jackfruit.database.remove questionDoc
+        @render() if renderOnDone
 
   updatePlugin: (event) =>
     if name = event.target.getAttribute("data-plugin")
@@ -110,6 +188,12 @@ class DatabaseView extends Backbone.View
         doc_ids: config.doc_ids
         jackfruit: config.jackfruit
         _attachments: (await pluginDatabase.get("attachments", attachments: true ))._attachments
+      .catch (error) => 
+        alert "Error while updating: #{JSON.stringify error}"
+        return
+      alert "#{nameOfPluginDoc} Updated"
+
+      @render()
 
   addPlugin: (event) =>
     if name = event.target.selectedOptions?[0]?.innerText

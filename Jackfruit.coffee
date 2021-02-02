@@ -29,6 +29,17 @@ for name, url of Jackfruit.knownDatabaseServers
   credentials = Cookie.get("#{name}-credentials")
   Jackfruit.serverCredentials[name] = credentials if credentials
 
+Jackfruit.canCreateDesignDoc = =>
+  Jackfruit.database.put {_id:"_design/test"}
+  .then (result) =>
+    Jackfruit.database.remove 
+      _id: result.id
+      _rev: result.rev
+    Promise.resolve(true)
+  .catch (error) => 
+    if error.status is 403
+      Promise.resolve(false)
+
 global.router = new Router()
 
 Backbone.history.start()
