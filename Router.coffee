@@ -4,12 +4,13 @@ _ = require 'underscore'
 
 humanize = require 'underscore.string/humanize'
 
-DefaultView = require './views/DefaultView'
 QuestionSetView = require './views/QuestionSetView'
 ResultsView = require './views/ResultsView'
 SelectServerView = require './views/SelectServerView'
 ServerView = require './views/ServerView'
 DatabaseView = require './views/DatabaseView'
+GatewayView = require './views/GatewayView'
+
 
 class Router extends Backbone.Router
 
@@ -25,9 +26,10 @@ class Router extends Backbone.Router
     "select/server": "selectServer"
     "server/:serverName": "showServer"
     "database/:serverName/:databaseName": "showDatabase"
+    "gateway/:serverName/:gatewayName": "showGateway"
     "results/:serverName/:databaseName/:questionSetDocId": "results"
-    "questionSet/:serverName/:databaseName/:questionSetDocId": "questionSet"
-    "questionSet/:serverName/:databaseName/:questionSetDocId/:question": "questionSet"
+    "questionSet/:serverName/:databaseOrGatewayName/:questionSetDocId": "questionSet"
+    "questionSet/:serverName/:databaseOrGatewayName/:questionSetDocId/:question": "questionSet"
     "logout": "logout"
     "": "default"
 
@@ -43,25 +45,33 @@ class Router extends Backbone.Router
     @serverView.render()
 
   showDatabase: (serverName, databaseName) =>
-    await @setupDatabase(serverName, databaseName)
+    await Jackfruit.setupDatabase(serverName, databaseName)
     @databaseView ?= new DatabaseView()
     @databaseView.serverName = serverName
     @databaseView.databaseName = databaseName
     @databaseView.setElement $("#content")
     @databaseView.render()
 
-  questionSet: (serverName, databaseName, questionSetDocId, question) =>
-    await @setupDatabase(serverName, databaseName)
+  showGateway: (serverName, gatewayName) =>
+    await Jackfruit.setupDatabase(serverName, gatewayName)
+    @gatewayView ?= new GatewayView()
+    @gatewayView.serverName = serverName
+    @gatewayView.gatewayName = gatewayName
+    @gatewayView.setElement $("#content")
+    @gatewayView.render()
+
+  questionSet: (serverName, databaseOrGatewayName, questionSetDocId, question) =>
+    await Jackfruit.setupDatabase(serverName, databaseOrGatewayName)
     @questionSetView ?= new QuestionSetView()
     @questionSetView.serverName = serverName
-    @questionSetView.databaseName = databaseName
+    @questionSetView.databaseOrGatewayName = databaseOrGatewayName
     @questionSetView.setElement $("#content")
     @questionSetView.questionSet = await QuestionSet.fetch(questionSetDocId)
     @questionSetView.activeQuestionLabel = question
     @questionSetView.render()
 
   results: (serverName, databaseName, questionSetDocId, question) =>
-    await @setupDatabase(serverName, databaseName)
+    await Jackfruit.setupDatabase(serverName, databaseName)
     @resultsView ?= new ResultsView()
     @resultsView.serverName = serverName
     @resultsView.databaseName = databaseName
@@ -70,26 +80,6 @@ class Router extends Backbone.Router
     @resultsView.activeQuestionLabel = question
     @resultsView.render()
 
-
-  setupDatabase: (serverName, databaseName) =>
-    Jackfruit.serverName = serverName
-    @username = Cookie.get("username")
-    @password = Cookie.get("password")
-    console.log @username
-    serverUrlWithCredentials = "#{Jackfruit.knownDatabaseServers[serverName]}".replace(/:\/\//, "://#{@username}:#{@password}@")
-    console.log serverUrlWithCredentials
-    Jackfruit.database = new PouchDB("#{serverUrlWithCredentials}/#{databaseName}")
-    Jackfruit.databaseName = databaseName
-    Jackfruit.databasePlugins = await Jackfruit.database.allDocs
-      startkey: "_design/plugin-"
-      endkey: "_design/plugin-\uf000"
-      include_docs: true
-    .then (result) =>
-      Promise.resolve(_(result?.rows).pluck "doc")
-
-    Jackfruit.database.info()
-    .catch =>
-      @showServer()
 
   logout: =>
     Jackfruit.database = null

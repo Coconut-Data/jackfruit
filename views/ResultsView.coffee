@@ -1,4 +1,5 @@
 $ = require 'jquery'
+require 'jquery-ui-browserify'
 Backbone = require 'backbone'
 Backbone.$  = $
 _ = require 'underscore'
@@ -8,6 +9,10 @@ humanize = require("underscore.string/humanize")
 slugify = require("underscore.string/slugify")
 underscored = require("underscore.string/underscored")
 
+{QueryCommand} = require "@aws-sdk/client-dynamodb"
+{unmarshall} = require("@aws-sdk/util-dynamodb")
+PivotTable = require 'pivottable'
+
 
 Tabulator = require 'tabulator-tables'
 
@@ -16,22 +21,55 @@ global.QuestionSet = require '../models/QuestionSet'
 class ResultsView extends Backbone.View
   events: =>
     "click #download": "csv"
+    "click #pivotButton": "loadPivotTable"
 
   csv: => @tabulator.download "csv", "CoconutTableExport.csv"
 
   getResults: =>
     questionSetName = @questionSet.name()
-    resultDocs = await Jackfruit.database.allDocs
-      startkey: "result-#{underscored(questionSetName.toLowerCase())}"
-      endkey: "result-#{underscored(questionSetName.toLowerCase())}-\ufff0"
-      include_docs: true
-    .then (result) => Promise.resolve _(result.rows)?.pluck "doc"
+
+    if Jackfruit.database
+      resultDocs = await Jackfruit.database.allDocs
+        startkey: "result-#{underscored(questionSetName.toLowerCase())}"
+        endkey: "result-#{underscored(questionSetName.toLowerCase())}-\ufff0"
+        include_docs: true
+      .then (result) => Promise.resolve _(result.rows)?.pluck "doc"
+    else if Jackfruit.dynamoDBClient
+
+      result = await Jackfruit.dynamoDBClient.send(
+        new QueryCommand
+          TableName: "Gateway-Web"
+          IndexName: "resultsByQuestionSetAndUpdateTime"
+          KeyConditionExpression: 'questionSetName = :questionSetName'
+          ExpressionAttributeValues:
+            ':questionSetName':
+              'S': questionSetName
+          ScanIndexForward: false
+      )
+
+      Promise.resolve(for item in result.Items
+        unmarshall(item).reporting
+      )
+
+
+
 
   render: =>
     @$el.html "
       <h2>Results for #{@questionSet.name()}</h2>
-      <button id='download'>CSV ↓</button> <small>Add more fields by clicking the box below</small>
+      <button id='download'>CSV</button>
       <div id='tabulator'></div>
+      <div>
+        Number of Rows: 
+        <span id='numberRows'></span>
+      </div>
+      <div id='pivotTableDiv'>
+        For more complicated groupings and comparisons you can create a <button id='pivotButton'>Pivot Table</button>. The pivot table can also output CSV data that can be copy and pasted into a spreadsheet.
+        <div id='pivotTable'></div>
+      </div>
+      <style>
+        #{@css()}
+      </style>
     "
     results = await @getResults()
 
@@ -45,18 +83,76 @@ class ResultsView extends Backbone.View
       {
         title: column
         field: column
+        headerFilter: "input"
       }
 
-    console.log columns
-    console.log results
-
-
     @tabulator = new Tabulator "#tabulator",
-      height: 800
+      height: 400
       columns: columns
       data: results
+      dataFiltered: (filters, rows) =>
+        @$("#numberRows").html(rows.length)
+      dataLoaded: (data) =>
+        @$("#numberRows").html(data.length)
 
 
 
+
+  loadPivotTable: =>
+    data = @tabulator.getData("active")
+    console.log data
+
+    @$("#pivotTable").pivotUI data,
+      rows: ["complete"]
+      cols: ["timeStarted"]
+      rendererName: "Heatmap"
+      renderers: _($.pivotUtilities.renderers).extend "CSV Export": (pivotData, opts) ->
+        defaults = localeStrings: {}
+
+        opts = $.extend(true, {}, defaults, opts)
+
+        rowKeys = pivotData.getRowKeys()
+        rowKeys.push [] if rowKeys.length == 0
+        colKeys = pivotData.getColKeys()
+        colKeys.push [] if colKeys.length == 0
+        rowAttrs = pivotData.rowAttrs
+        colAttrs = pivotData.colAttrs
+
+        result = []
+
+        row = []
+        for rowAttr in rowAttrs
+            row.push rowAttr
+        if colKeys.length == 1 and colKeys[0].length == 0
+            row.push pivotData.aggregatorName
+        else
+            for colKey in colKeys
+                row.push colKey.join("-")
+
+        result.push row
+
+        for rowKey in rowKeys
+            row = []
+            for r in rowKey
+                row.push r
+
+            for colKey in colKeys
+                agg = pivotData.getAggregator(rowKey, colKey)
+                if agg.value()?
+                    row.push agg.value()
+                else
+                    row.push ""
+            result.push row
+        text = ""
+        for r in result
+            text += r.join(",")+"\n"
+
+        return $("<textarea>").text(text).css(
+                width: ($(window).width() / 2) + "px",
+                height: ($(window).height() / 2) + "px")
+
+  css: => "
+.pvtUi{color:#333}table.pvtTable{font-size:8pt;text-align:left;border-collapse:collapse}table.pvtTable tbody tr th,table.pvtTable thead tr th{background-color:#e6EEEE;border:1px solid #CDCDCD;font-size:8pt;padding:5px}table.pvtTable .pvtColLabel{text-align:center}table.pvtTable .pvtTotalLabel{text-align:right}table.pvtTable tbody tr td{color:#3D3D3D;padding:5px;background-color:#FFF;border:1px solid #CDCDCD;vertical-align:top;text-align:right}.pvtGrandTotal,.pvtTotal{font-weight:700}.pvtVals{text-align:center;white-space:nowrap}.pvtColOrder,.pvtRowOrder{cursor:pointer;width:15px;margin-left:5px;display:inline-block}.pvtAggregator{margin-bottom:5px}.pvtAxisContainer,.pvtVals{border:1px solid gray;background:#EEE;padding:5px;min-width:20px;min-height:20px;user-select:none;-webkit-user-select:none;-moz-user-select:none;-khtml-user-select:none;-ms-user-select:none}.pvtAxisContainer li{padding:8px 6px;list-style-type:none;cursor:move}.pvtAxisContainer li.pvtPlaceholder{-webkit-border-radius:5px;padding:3px 15px;-moz-border-radius:5px;border-radius:5px;border:1px dashed #aaa}.pvtAxisContainer li span.pvtAttr{-webkit-text-size-adjust:100%;background:#F3F3F3;border:1px solid #DEDEDE;padding:2px 5px;white-space:nowrap;-webkit-border-radius:5px;-moz-border-radius:5px;border-radius:5px}.pvtTriangle{cursor:pointer;color:grey}.pvtHorizList li{display:inline}.pvtVertList{vertical-align:top}.pvtFilteredAttribute{font-style:italic}.pvtFilterBox{z-index:100;width:300px;border:1px solid gray;background-color:#fff;position:absolute;text-align:center}.pvtFilterBox h4{margin:15px}.pvtFilterBox p{margin:10px auto}.pvtFilterBox label{font-weight:400}.pvtFilterBox input[type=checkbox]{margin-right:10px;margin-left:10px}.pvtFilterBox input[type=text]{width:230px}.pvtFilterBox .count{color:gray;font-weight:400;margin-left:3px}.pvtCheckContainer{text-align:left;font-size:14px;white-space:nowrap;overflow-y:scroll;width:100%;max-height:250px;border-top:1px solid #d3d3d3;border-bottom:1px solid #d3d3d3}.pvtCheckContainer p{margin:5px}.pvtRendererArea{padding:5px}
+  "
 
 module.exports = ResultsView

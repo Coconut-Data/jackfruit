@@ -14,12 +14,14 @@ isJSON = require('is-json');
 striptags = require 'striptags'
 Sortable = require 'sortablejs'
 global.Coffeescript = require 'coffeescript'
+JsonDiffPatch = require 'jsondiffpatch'
 
 hljs = require 'highlight.js/lib/highlight';
 coffeescriptHighlight = require 'highlight.js/lib/languages/coffeescript';
 hljs.registerLanguage('coffeescript', coffeescriptHighlight);
 
 global.QuestionSet = require '../models/QuestionSet'
+InteractView = require './InteractView'
 
 class QuestionSetView extends Backbone.View
   events: =>
@@ -38,6 +40,31 @@ class QuestionSetView extends Backbone.View
     "click #deploy": "deploy"
     "click #update": "update"
     "click #addIdsToCeshharQuestions": "addIdsToCeshharQuestions"
+    "click #showDiff": "showDiff"
+
+  showDiff:  =>
+    @$("#diff").html "<h2>Loading differences, please wait...</h2>"
+    production = new PouchDB(Jackfruit.database.name.replace("-development", ""))
+
+    developmentVersion = await Jackfruit.database.get(@questionSet.idOrName)
+    productionVersion = await production.get(@questionSet.idOrName)
+
+    @$("#diff").html ""
+
+    if JSON.stringify(developmentVersion.questions) isnt JSON.stringify(productionVersion.questions)
+      delta = JsonDiffPatch.create(
+        objectHash: (obj, index) =>
+          obj.label
+      ).diff(productionVersion.questions, developmentVersion.questions)
+
+      @$("#diff").append "<hr/>Differences from Production<br/>#{
+          JsonDiffPatch.formatters.html.format(delta, productionVersion.questions)
+        }
+      "
+      JsonDiffPatch.formatters.html.hideUnchanged()
+    else
+      @$("#diff").html "<h2>No differences</h2>"
+
 
   # Legacy support
   addIdsToCeshharQuestions: =>
@@ -105,13 +132,15 @@ class QuestionSetView extends Backbone.View
       if newQuestion.label is ""
         alert("Label for new question can't be empty")
         return
+      unless newQuestion.label
+        newQuestion.label = label
       @questionSet.data.questions.push newQuestion
 
     @changesWatcher.cancel()
     await @questionSet.save()
     @activeQuestionLabel = label
     # legacy hack
-    if @databaseName.match(/ceshhar/)
+    if @databaseOrGatewayName.match(/ceshhar/)
       @addIdsToCeshharQuestions()
     @render()
 
@@ -179,7 +208,11 @@ class QuestionSetView extends Backbone.View
     propertyPath = updatedElement.attr("data-property-path")
     updatedValue = updatedElement.val()
     updatedValue = JSON.parse(updatedValue) if isJSON(updatedValue)
-    set(@questionSet, "data.#{propertyPath}", updatedValue)
+    if propertyPath isnt "null"
+      set(@questionSet, "data.#{propertyPath}", updatedValue)
+    else
+      console.log "Setting entire question set"
+      @questionSet.data = updatedValue
     @changesWatcher.cancel()
     @questionSet.save().then =>
       @render()
@@ -207,27 +240,33 @@ class QuestionSetView extends Backbone.View
         <textarea style='display:block' class='code' data-property-path=#{propertyPath}>#{code}</textarea>
         <button class='save'>Save</button>
         <button class='cancel'>Cancel</button>
-        <br/>
-        <br/>
-        <span style='background-color: black; color: gray; padding: 2px; border: solid 2px;' class='toggleNext'>Test It</span>
-        <div style='display:none'>
-          Set ResultOfQuestion values (e.g. Name: Mike McKay, Birthdate: 2012-11-27 or put each pair on a new line)
-          <br/>
-          <textarea style='height:60px' class='testResultOfQuestion'>#{questionsReferredTo.join("""\n""")}</textarea>
-          <br/>
-          <br/>
-          Set the value to use for testing the current value
-          <br/>
-          <input class='testValue'></input>
-          <br/>
-          <br/>
-          Test Code: 
-          <br/>
-          <textarea class='testCode'></textarea>
-          <br/>
-          <button class='updateTestCode'>Update Test Code</button>
-          <button class='runTestCode'>Run</button>
-        </div>
+        #{ if propertyPath
+          "
+            <br/>
+            <br/>
+            <span style='background-color: black; color: gray; padding: 2px; border: solid 2px;' class='toggleNext'>Test It</span>
+            <div style='display:none'>
+              Set ResultOfQuestion values (e.g. Name: Mike McKay, Birthdate: 2012-11-27 or put each pair on a new line)
+              <br/>
+              <textarea style='height:60px' class='testResultOfQuestion'>#{questionsReferredTo.join("""\n""")}</textarea>
+              <br/>
+              <br/>
+              Set the value to use for testing the current value
+              <br/>
+              <input class='testValue'></input>
+              <br/>
+              <br/>
+              Test Code: 
+              <br/>
+              <textarea class='testCode'></textarea>
+              <br/>
+              <button class='updateTestCode'>Update Test Code</button>
+              <button class='runTestCode'>Run</button>
+            </div>
+          "
+        else
+          ""
+        }
       </div>
     "
 
@@ -314,19 +353,30 @@ class QuestionSetView extends Backbone.View
           background-color: yellow
         }
 
+        #{@jsonDiffCss()}
+
       </style>
-      <h2>Application: <a href='#database/#{@serverName}/#{@databaseName}'>#{Jackfruit.databaseName}</a>
+      <div style='float:right; width:200px; border: 1px solid;' id='interact'>
+      </div>
       #{
-        if Jackfruit.databaseName.match(/develop/) 
+        if @isTextMessageQuestionSet()
+          "<h2>Gateway: <a href='#gateway/#{@serverName}/#{@databaseOrGatewayName}'>#{@databaseOrGatewayName}</a>"
+        else
+          "<h2>Application: <a href='#database/#{@serverName}/#{@databaseOrGatewayName}'>#{@databaseOrGatewayName}</a>"
+      }
+      #{
+        if @databaseOrGatewayName?.match(/develop/) 
           "
           <button id='deploy'>Deploy To Production</button>
           <button id='update'>Update From Production</button>
+          <button id='showDiff'>Show differences with Production</button>
+          <div id='diff'></div>
           "
         else
           ""
       }
       </h2>
-      <h2>Question Set: #{titleize(@questionSet.name())}</h2>
+      <h2>Question Set: #{titleize(@questionSet.name())} <span style='color:gray; font-size:small'>#{@questionSet.data.version or ""}</span></h2>
       <div id='questionSet'>
         <!--
         <div class='description'>
@@ -334,7 +384,7 @@ class QuestionSetView extends Backbone.View
         </div>
         -->
 
-        <h3><a href='#results/#{@serverName}/#{@databaseName}/#{@questionSet.name()}'>Results</a></h3>
+        <h3><a href='#results/#{@serverName}/#{@databaseOrGatewayName}/#{@questionSet.name()}'>Results</a></h3>
 
         <h3 style='display:inline'>Configuration</h3>
         <span class='toggleNext clickToEdit'>Edit</span>
@@ -342,12 +392,11 @@ class QuestionSetView extends Backbone.View
         <div style='display:none'>
           <div class='description'>These options configure the entire question set as opposed to individual questions. For example, this is where you can run code when the page loads or when the question set is marked complete.</div>
           #{
-            console.log @questionSet.data
             _(@questionSet.data).map (value, property) =>
               propertyMetadata = QuestionSet.properties[property]
               if propertyMetadata
                 switch propertyMetadata["data-type"]
-                  when "coffeescript", "object"
+                  when "coffeescript", "object","text"
                     "
                       <div>
                         <div class='questionSetProperty'>
@@ -367,7 +416,7 @@ class QuestionSetView extends Backbone.View
                     console.error "Unknown type: #{propertyMetadata["data-type"]}: #{value}"
                     alert "Unhandled type"
               else
-                return if _(["_id", "_rev", "isApplicationDoc", "collection", "couchapp", "questions"]).contains property
+                return if _(["_id", "label", "_rev", "isApplicationDoc", "collection", "couchapp", "questions", "version"]).contains property
                 console.error "Unknown question set property: #{property}: #{value}"
             .join("")
           }
@@ -550,19 +599,29 @@ class QuestionSetView extends Backbone.View
               <input id='newQuestionLabel'/>
             </div>
             Choose the type of question to add:
+            #{
+              if @isTextMessageQuestionSet()
+                "(Only text and radio are currently supported, the rest still need implementing)"
+              else
+                ""
+            }
             <ul>
             #{
               #(for questionType, metadata of QuestionSet.questionProperties.type.options
               (for questionType, metadata of QuestionSet.getQuestionProperties().type.options
-                "
-                <li>
-                  <span>#{questionType}</span>
-                  <span data-question-type='#{questionType}' class='clickToEdit addNewQuestion'>add</span>
-                  <span class='description'>
-                    #{metadata.description}
-                  </span>
-                </li>
-                "
+                if metadata.limit? and metadata.limit is "coconut" and @isTextMessageQuestionSet()
+                  ""
+                else if metadata.limit? and metadata.limit is "textMessages" and not @isTextMessageQuestionSet()
+                else
+                  "
+                  <li>
+                    <span>#{questionType}</span>
+                    <span data-question-type='#{questionType}' class='clickToEdit addNewQuestion'>add</span>
+                    <span class='description'>
+                      #{metadata.description}
+                    </span>
+                  </li>
+                  "
               ).join("")
             }
             </ul>
@@ -598,31 +657,47 @@ class QuestionSetView extends Backbone.View
         @sortable.option("disabled", false)
 
     @openActiveQuestion()
-    Jackfruit.database.changes
-      limit:1
-      descending:true
-    .then (change) =>  
-      console.log change.last_seq
-      @changesWatcher = Jackfruit.database.changes
-        live: true
-        doc_ids: [router.questionSetView.questionSet.data._id]
-        since: change.last_seq
-      .on "change", (change) =>
-        console.log change
-        @changesWatcher.cancel()
-        if confirm("This question set has changed - someone else might be working on it. Would you like to refresh?")
-          @questionSet.fetch().then => @render()
 
+    @resetChangesWatcher()
 
+    if @isTextMessageQuestionSet()
+      @interactView = new InteractView()
+      @interactView.setElement @$("#interact")
+      @interactView.render()
 
-
-
-
+  resetChangesWatcher: =>
+    if Jackfruit.database?
+      Jackfruit.database.changes
+        limit:1
+        descending:true
+      .then (change) =>  
+        @changesWatcher = Jackfruit.database.changes
+          live: true
+          doc_ids: [router.questionSetView.questionSet.data._id]
+          since: change.last_seq
+        .on "change", (change) =>
+          console.log change
+          @changesWatcher.cancel()
+          if confirm("This question set has changed - someone else might be working on it. Would you like to refresh?")
+            @questionSet.fetch().then => @render()
+    else
+      # Create an empty changesWatcher
+      @changesWatcher = 
+        cancel: ->
 
   openActiveQuestion: =>
     if @activeQuestionLabel
       questionElement = @$(".toggleNext.question-label:contains(#{@activeQuestionLabel})")
       questionElement.click()
       questionElement[0].scrollIntoView()
+
+  isTextMessageQuestionSet: =>
+    Jackfruit.dynamoDBClient?
+
+
+  jsonDiffCss: => "
+.jsondiffpatch-delta{font-family:'Bitstream Vera Sans Mono','DejaVu Sans Mono',Monaco,Courier,monospace;font-size:12px;margin:0;padding:0 0 0 12px;display:inline-block}.jsondiffpatch-delta pre{font-family:'Bitstream Vera Sans Mono','DejaVu Sans Mono',Monaco,Courier,monospace;font-size:12px;margin:0;padding:0;display:inline-block}ul.jsondiffpatch-delta{list-style-type:none;padding:0 0 0 20px;margin:0}.jsondiffpatch-delta ul{list-style-type:none;padding:0 0 0 20px;margin:0}.jsondiffpatch-added .jsondiffpatch-property-name,.jsondiffpatch-added .jsondiffpatch-value pre,.jsondiffpatch-modified .jsondiffpatch-right-value pre,.jsondiffpatch-textdiff-added{background:#bfb}.jsondiffpatch-deleted .jsondiffpatch-property-name,.jsondiffpatch-deleted pre,.jsondiffpatch-modified .jsondiffpatch-left-value pre,.jsondiffpatch-textdiff-deleted{background:#fbb;text-decoration:line-through}.jsondiffpatch-unchanged,.jsondiffpatch-movedestination{color:gray;display:none}.jsondiffpatch-unchanged,.jsondiffpatch-movedestination>.jsondiffpatch-value{transition:all .5s;-webkit-transition:all .5s;overflow-y:hidden}.jsondiffpatch-unchanged-showing .jsondiffpatch-unchanged,.jsondiffpatch-unchanged-showing .jsondiffpatch-movedestination>.jsondiffpatch-value{max-height:100px}.jsondiffpatch-unchanged-hidden .jsondiffpatch-unchanged,.jsondiffpatch-unchanged-hidden .jsondiffpatch-movedestination>.jsondiffpatch-value{max-height:0}.jsondiffpatch-unchanged-hiding .jsondiffpatch-movedestination>.jsondiffpatch-value,.jsondiffpatch-unchanged-hidden .jsondiffpatch-movedestination>.jsondiffpatch-value{display:block}.jsondiffpatch-unchanged-visible .jsondiffpatch-unchanged,.jsondiffpatch-unchanged-visible .jsondiffpatch-movedestination>.jsondiffpatch-value{max-height:100px}.jsondiffpatch-unchanged-hiding .jsondiffpatch-unchanged,.jsondiffpatch-unchanged-hiding .jsondiffpatch-movedestination>.jsondiffpatch-value{max-height:0}.jsondiffpatch-unchanged-showing .jsondiffpatch-arrow,.jsondiffpatch-unchanged-hiding .jsondiffpatch-arrow{display:none}.jsondiffpatch-value{display:inline-block}.jsondiffpatch-property-name{display:inline-block;padding-right:5px;vertical-align:top}.jsondiffpatch-property-name:after{content:': '}.jsondiffpatch-child-node-type-array>.jsondiffpatch-property-name:after{content:': ['}.jsondiffpatch-child-node-type-array:after{content:'],'}div.jsondiffpatch-child-node-type-array:before{content:'['}div.jsondiffpatch-child-node-type-array:after{content:']'}.jsondiffpatch-child-node-type-object>.jsondiffpatch-property-name:after{content:': {'}.jsondiffpatch-child-node-type-object:after{content:'},'}div.jsondiffpatch-child-node-type-object:before{content:'{'}div.jsondiffpatch-child-node-type-object:after{content:'}'}.jsondiffpatch-value pre:after{content:','}li:last-child>.jsondiffpatch-value pre:after,.jsondiffpatch-modified>.jsondiffpatch-left-value pre:after{content:''}.jsondiffpatch-modified .jsondiffpatch-value{display:inline-block}.jsondiffpatch-modified .jsondiffpatch-right-value{margin-left:5px}.jsondiffpatch-moved .jsondiffpatch-value{display:none}.jsondiffpatch-moved .jsondiffpatch-moved-destination{display:inline-block;background:#ffb;color:#888}.jsondiffpatch-moved .jsondiffpatch-moved-destination:before{content:' => '}ul.jsondiffpatch-textdiff{padding:0}.jsondiffpatch-textdiff-location{color:#bbb;display:inline-block;min-width:60px}.jsondiffpatch-textdiff-line{display:inline-block}.jsondiffpatch-textdiff-line-number:after{content:','}.jsondiffpatch-error{background:red;color:white;font-weight:bold}
+  "
+
 
 module.exports = QuestionSetView

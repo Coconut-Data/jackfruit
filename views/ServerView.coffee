@@ -3,16 +3,20 @@ Passphrase = require 'xkcd-passphrase'
 
 crypto = require('crypto')
 
+{ CognitoIdentityClient } = require("@aws-sdk/client-cognito-identity")
+{ fromCognitoIdentityPool } = require("@aws-sdk/credential-provider-cognito-identity")
+{DynamoDBClient,ScanCommand,PutItemCommand, CreateTableCommand, DescribeTableCommand} = require("@aws-sdk/client-dynamodb")
+{ marshall, unmarshall } = require("@aws-sdk/util-dynamodb")
+
 class ServerView extends Backbone.View
 
   render: =>
-    @taskDatabase = new PouchDB("#{@getServerUrlWithCredentials()}/server_tasks")
+    global.dt = DescribeTableCommand
 
     @login()
     .catch =>
       return @renderLoginForm()
     .then (databaseList) =>
-      console.log databaseList
 
       @$el.html "
         <style>
@@ -23,39 +27,63 @@ class ServerView extends Backbone.View
             font-size: 2em;
           }
         </style>
-        <h1>Select a database:</h1>
+        <h1>Select a #{if @isDynamoDB then "Gateway" else "database"}:</h1>
         #{
-          (for database in databaseList
-            continue if database.startsWith("_")
-            continue if database.match(/backup/)
-            continue if database.startsWith("plugin")
-            "<li style='height:50px;'><a href='#database/#{Jackfruit.serverName}/#{database}'>#{database}</a></li>"
-          ).join("")
         }
-        <h1>Create a new database:</h1>
-        Database Name: <input id='databaseName'></input>
-        <br/>
-        <button id='newDatabase'>Create</button>
 
-        <h2>Every Day At Midnight</h2>
-        <textarea id='daily'>
         #{
-          await @taskDatabase.get "daily"
-          .then (doc) => Promise.resolve doc.code
-          .catch (error) => Promise.resolve("")
-        }
-        </textarea>
-        <button id='daily-button''>Update</button>
+          if @isDynamoDB
 
-        <h2>Every 5 Minutes</h2>
-        <textarea id='five-minutes'>
-        #{
-          await @taskDatabase.get "five-minutes"
-          .then (doc) => Promise.resolve doc.code
-          .catch (error) => Promise.resolve("")
+            "
+              #{
+                (for gateway in databaseList
+                  "<li style='height:50px;'><a href='#gateway/#{Jackfruit.serverName}/#{gateway}'>#{gateway}</a></li>"
+                ).join("")
+              
+              }
+              <h1>Create a new gateway:</h1>
+              Gateway Name: <input id='gatewayName'></input>
+              <br/>
+              <button id='newGateway'>Create</button>
+            "
+
+          else
+            @taskDatabase = new PouchDB("#{@getServerUrlWithCredentials()}/server_tasks")
+            databaseList = (for database in databaseList
+              continue if database.startsWith("_")
+              continue if database.match(/backup/)
+              continue if database.startsWith("plugin")
+              "<li style='height:50px;'><a href='#database/#{Jackfruit.serverName}/#{database}'>#{database}</a></li>"
+            ).join("")
+
+            "
+              #{databaseList}
+              <h1>Create a new database:</h1>
+              Database Name: <input id='databaseName'></input>
+              <br/>
+              <button id='newDatabase'>Create</button>
+
+              <h2>Every Day At Midnight</h2>
+              <textarea id='daily'>
+              #{
+                await @taskDatabase.get "daily"
+                .then (doc) => Promise.resolve doc.code
+                .catch (error) => Promise.resolve("")
+              }
+              </textarea>
+              <button id='daily-button''>Update</button>
+
+              <h2>Every 5 Minutes</h2>
+              <textarea id='five-minutes'>
+              #{
+                await @taskDatabase.get "five-minutes"
+                .then (doc) => Promise.resolve doc.code
+                .catch (error) => Promise.resolve("")
+              }
+              </textarea>
+              <button id='five-minutes-button''>Update</button>
+            "
         }
-        </textarea>
-        <button id='five-minutes-button''>Update</button>
       "
 
 
@@ -76,6 +104,7 @@ class ServerView extends Backbone.View
   events: =>
     "click #login": "updateUsernamePassword"
     "click #newDatabase": "newDatabase"
+    "click #newGateway": "newGateway"
     "click #daily-button": "updateTasks"
     "click #five-minutes-button": "updateTasks"
 
@@ -90,6 +119,85 @@ class ServerView extends Backbone.View
     username = Cookie.get("username")
     password = Cookie.get("password")
     "#{Jackfruit.knownDatabaseServers[Jackfruit.serverName]}".replace(/:\/\//, "://#{username}:#{password}@")
+
+  newGateway: =>
+    gatewayName = @$("#gatewayName").val()
+    item =
+      gatewayName: gatewayName
+      "Question Sets":
+        "Test Questions": 
+          label: "Test Questions"
+          version: "1"
+          questions: [
+            {
+              label: "Name"
+              calculated_label: "What is your name?"
+              type: "text"
+            }
+            {
+              label: "Middle Name"
+              calculated_label: "\#{ResultOfQuestion('Name')}, What is your middle name?"
+              skip_logic: "ResultOfQuestion('First Name') is 'Pete'"
+              type: "text"
+            }
+          ]
+    await @dynamoDBClient.send(
+      new PutItemCommand(
+        TableName: "Configurations"
+        Item: marshall(item)
+      )
+    )
+    await @dynamoDBClient.send(
+      new CreateTableCommand(
+        TableName: gatewayName
+        AttributeDefinitions: [
+          {
+            AttributeName: "lastUpdate"
+            AttributeType: "N"
+          },
+          {
+            AttributeName: "questionSetName"
+            AttributeType: "S"
+          },
+          {
+            AttributeName: "source"
+            AttributeType: "S"
+          },
+          {
+            AttributeName: "startTime"
+            AttributeType: "N"
+          }
+        ]
+        KeySchema: [
+          {
+            AttributeName: "source"
+            KeyType: "HASH"
+          },
+          {
+            AttributeName: "startTime",
+            KeyType: "RANGE"
+          }
+        ]
+        BillingMode: "PAY_PER_REQUEST"
+        GlobalSecondaryIndexes:[
+          IndexName: "resultsByQuestionSetAndUpdateTime"
+          KeySchema: [
+            {
+              AttributeName: "questionSetName",
+              KeyType: "HASH"
+            },
+            {
+              AttributeName: "lastUpdate",
+              KeyType: "RANGE"
+            }
+          ]
+          Projection:
+            NonKeyAttributes: ["reporting" ]
+            ProjectionType: "INCLUDE"
+        ]
+      )
+    )
+
 
   newDatabase: =>
     newUser = await Passphrase.generateWithWordCount(1)
@@ -154,21 +262,50 @@ class ServerView extends Backbone.View
 
   fetchDatabaseList: =>
     new Promise (resolve,reject) =>
-      #fetch "#{Jackfruit.knownDatabaseServers[Jackfruit.serverName]}/_all_dbs",
-      console.log @username
-      fetch "#{Jackfruit.knownDatabaseServers[Jackfruit.serverName]}/_all_dbs",
-        method: 'GET'
-        credentials: 'include'
-        headers:
-          'content-type': 'application/json'
-          authorization: "Basic #{btoa("#{@username}:#{@password}")}"
-      .catch (error) =>
-        reject(error)
-      .then (response) =>
-        if response.status is 401
-          reject(response.statusText)
-        else
-          result = await response.json()
-          resolve(result)
+      console.log Jackfruit.serverName
+      if Jackfruit.knownDatabaseServers[Jackfruit.serverName].IdentityPoolId? # DynamoDB
+        @isDynamoDB = true
+
+        region = Jackfruit.knownDatabaseServers[Jackfruit.serverName].region
+        identityPoolId = Jackfruit.knownDatabaseServers[Jackfruit.serverName].IdentityPoolId
+
+        @dynamoDBClient = new DynamoDBClient(
+          region: region
+          credentials: fromCognitoIdentityPool(
+            client: new CognitoIdentityClient({region})
+            identityPoolId: identityPoolId
+          )
+        )
+
+        gatewayConfigurations = await @dynamoDBClient.send(
+          new ScanCommand(
+            TableName: "Configurations"
+          )
+        )
+
+        Jackfruit.gateways = {}
+
+        for item in gatewayConfigurations.Items
+          unmarshalledItem = unmarshall(item)
+          Jackfruit.gateways[unmarshalledItem.gatewayName] = unmarshalledItem
+
+        resolve(gatewayName for gatewayName,details of Jackfruit.gateways)
+
+      else
+        @isDynamoDB = false
+        fetch "#{Jackfruit.knownDatabaseServers[Jackfruit.serverName]}/_all_dbs",
+          method: 'GET'
+          credentials: 'include'
+          headers:
+            'content-type': 'application/json'
+            authorization: "Basic #{btoa("#{@username}:#{@password}")}"
+        .catch (error) =>
+          reject(error)
+        .then (response) =>
+          if response.status is 401
+            reject(response.statusText)
+          else
+            result = await response.json()
+            resolve(result)
 
 module.exports = ServerView

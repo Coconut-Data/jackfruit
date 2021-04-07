@@ -1,5 +1,6 @@
 Backbone = require 'backbone'
 UsersView = require './UsersView'
+JsonDiffPatch = require 'jsondiffpatch'
 
 class DatabaseView extends Backbone.View
   render: =>
@@ -27,6 +28,7 @@ class DatabaseView extends Backbone.View
           li a{
             font-size: 2em;
           }
+          #{@jsonDiffCss()}
         </style>
         <h1>#{@databaseName}</h1>
         <h2>Select a question set</h2>
@@ -36,8 +38,10 @@ class DatabaseView extends Backbone.View
         #{
           if Jackfruit.databaseName.match(/develop/) 
             "
-            <button id='differences'>Show differences with Production (TODO)</button>
             <button id='updateFromProduction'>Update All Question Sets from Production</button>
+            <button id='deploy'>Deploy to Production</button>
+            <button id='showDiff'>Show differences with Production</button>
+            <div id='diff'></div>
             "
           else
             ""
@@ -129,6 +133,33 @@ class DatabaseView extends Backbone.View
     "click .rename": "rename"
     "click .remove": "remove"
     "click #updateFromProduction": "updateFromProduction"
+    "click #showDiff": "showDiff"
+    "click #deploy": "deploy"
+
+  showDiff: =>
+    @$("#diff").html "<h2>Loading differences, please wait...</h2>"
+    production = new PouchDB(Jackfruit.database.name.replace("-development", ""))
+    questionSets = for questionSetId in @questionSets
+      [await Jackfruit.database.get(questionSetId), await production.get(questionSetId)]
+
+    @$("#diff").html ""
+
+    for questionSetPair in questionSets
+      [developmentVersion, productionVersion] = questionSetPair
+      if JSON.stringify(developmentVersion.questions) isnt JSON.stringify(productionVersion.questions)
+        delta = JsonDiffPatch.create(
+          objectHash: (obj, index) =>
+            obj.label
+        ).diff(productionVersion.questions, developmentVersion.questions)
+
+        @$("#diff").append "<hr/>#{developmentVersion._id}<br/>#{
+            JsonDiffPatch.formatters.html.format(delta, developmentVersion.questions)
+          }
+        "
+        JsonDiffPatch.formatters.html.hideUnchanged()
+
+
+
 
   updateFromProduction: =>
     source = new PouchDB(prompt("Source URL (e.g. https://username:password@example.com/foo)?"))
@@ -145,6 +176,16 @@ class DatabaseView extends Backbone.View
     _.delay =>
       document.location.reload()
     , 1000
+
+  deploy: =>
+    target = new PouchDB(prompt("Target URL (e.g. https://username:password@example.com/foo)?"))
+    if target isnt "" and confirm "Are you sure you want to deploy #{@questionSets.join(", ")} to #{target}? Have you reviewed the differences?"
+        Jackfruit.database.replicate.to target,
+          doc_ids: @questionSets
+        .on "error", => alert error
+        .on "complete", => alert JSON.stringify(result)
+        .on "denied", => alert "Denied - wrong authentication?"
+        .on "change", (change) => console.log change
 
   copy: (event, renderOnDone = true) =>
     question = event.target.getAttribute("data-question")
@@ -242,4 +283,9 @@ class DatabaseView extends Backbone.View
         else
           result = await response.json()
           resolve(result)
+
+
+  jsonDiffCss: => "
+.jsondiffpatch-delta{font-family:'Bitstream Vera Sans Mono','DejaVu Sans Mono',Monaco,Courier,monospace;font-size:12px;margin:0;padding:0 0 0 12px;display:inline-block}.jsondiffpatch-delta pre{font-family:'Bitstream Vera Sans Mono','DejaVu Sans Mono',Monaco,Courier,monospace;font-size:12px;margin:0;padding:0;display:inline-block}ul.jsondiffpatch-delta{list-style-type:none;padding:0 0 0 20px;margin:0}.jsondiffpatch-delta ul{list-style-type:none;padding:0 0 0 20px;margin:0}.jsondiffpatch-added .jsondiffpatch-property-name,.jsondiffpatch-added .jsondiffpatch-value pre,.jsondiffpatch-modified .jsondiffpatch-right-value pre,.jsondiffpatch-textdiff-added{background:#bfb}.jsondiffpatch-deleted .jsondiffpatch-property-name,.jsondiffpatch-deleted pre,.jsondiffpatch-modified .jsondiffpatch-left-value pre,.jsondiffpatch-textdiff-deleted{background:#fbb;text-decoration:line-through}.jsondiffpatch-unchanged,.jsondiffpatch-movedestination{color:gray;display:none}.jsondiffpatch-unchanged,.jsondiffpatch-movedestination>.jsondiffpatch-value{transition:all .5s;-webkit-transition:all .5s;overflow-y:hidden}.jsondiffpatch-unchanged-showing .jsondiffpatch-unchanged,.jsondiffpatch-unchanged-showing .jsondiffpatch-movedestination>.jsondiffpatch-value{max-height:100px}.jsondiffpatch-unchanged-hidden .jsondiffpatch-unchanged,.jsondiffpatch-unchanged-hidden .jsondiffpatch-movedestination>.jsondiffpatch-value{max-height:0}.jsondiffpatch-unchanged-hiding .jsondiffpatch-movedestination>.jsondiffpatch-value,.jsondiffpatch-unchanged-hidden .jsondiffpatch-movedestination>.jsondiffpatch-value{display:block}.jsondiffpatch-unchanged-visible .jsondiffpatch-unchanged,.jsondiffpatch-unchanged-visible .jsondiffpatch-movedestination>.jsondiffpatch-value{max-height:100px}.jsondiffpatch-unchanged-hiding .jsondiffpatch-unchanged,.jsondiffpatch-unchanged-hiding .jsondiffpatch-movedestination>.jsondiffpatch-value{max-height:0}.jsondiffpatch-unchanged-showing .jsondiffpatch-arrow,.jsondiffpatch-unchanged-hiding .jsondiffpatch-arrow{display:none}.jsondiffpatch-value{display:inline-block}.jsondiffpatch-property-name{display:inline-block;padding-right:5px;vertical-align:top}.jsondiffpatch-property-name:after{content:': '}.jsondiffpatch-child-node-type-array>.jsondiffpatch-property-name:after{content:': ['}.jsondiffpatch-child-node-type-array:after{content:'],'}div.jsondiffpatch-child-node-type-array:before{content:'['}div.jsondiffpatch-child-node-type-array:after{content:']'}.jsondiffpatch-child-node-type-object>.jsondiffpatch-property-name:after{content:': {'}.jsondiffpatch-child-node-type-object:after{content:'},'}div.jsondiffpatch-child-node-type-object:before{content:'{'}div.jsondiffpatch-child-node-type-object:after{content:'}'}.jsondiffpatch-value pre:after{content:','}li:last-child>.jsondiffpatch-value pre:after,.jsondiffpatch-modified>.jsondiffpatch-left-value pre:after{content:''}.jsondiffpatch-modified .jsondiffpatch-value{display:inline-block}.jsondiffpatch-modified .jsondiffpatch-right-value{margin-left:5px}.jsondiffpatch-moved .jsondiffpatch-value{display:none}.jsondiffpatch-moved .jsondiffpatch-moved-destination{display:inline-block;background:#ffb;color:#888}.jsondiffpatch-moved .jsondiffpatch-moved-destination:before{content:' => '}ul.jsondiffpatch-textdiff{padding:0}.jsondiffpatch-textdiff-location{color:#bbb;display:inline-block;min-width:60px}.jsondiffpatch-textdiff-line{display:inline-block}.jsondiffpatch-textdiff-line-number:after{content:','}.jsondiffpatch-error{background:red;color:white;font-weight:bold}
+  "
 module.exports = DatabaseView
