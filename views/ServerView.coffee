@@ -11,8 +11,6 @@ crypto = require('crypto')
 class ServerView extends Backbone.View
 
   render: =>
-    global.dt = DescribeTableCommand
-
     @login()
     .catch =>
       return @renderLoginForm()
@@ -149,7 +147,7 @@ class ServerView extends Backbone.View
     )
     await @dynamoDBClient.send(
       new CreateTableCommand(
-        TableName: gatewayName
+        TableName: "Gateway-#{gatewayName}"
         AttributeDefinitions: [
           {
             AttributeName: "lastUpdate"
@@ -197,6 +195,7 @@ class ServerView extends Backbone.View
         ]
       )
     )
+    @render()
 
 
   newDatabase: =>

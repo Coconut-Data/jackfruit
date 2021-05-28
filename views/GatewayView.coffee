@@ -62,6 +62,7 @@ class GatewayView extends Backbone.View
       @render()
 
   remove: (event, promptToDelete = true, renderOnDone = true) =>
+    console.log event
     question = event.target.getAttribute("data-question")
     if not promptToDelete or confirm "Are you sure you want to remove #{question}?"
       if not promptToDelete or prompt("Confirm the name of question that you want to remove:") is question

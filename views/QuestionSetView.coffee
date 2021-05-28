@@ -42,6 +42,18 @@ class QuestionSetView extends Backbone.View
     "click #addIdsToCeshharQuestions": "addIdsToCeshharQuestions"
     "click #showDiff": "showDiff"
 
+    "keyup [data-type-of-code=label] textarea.code": "countChars"
+
+  countChars: (event) =>
+    textArea = @$(event.target)
+    charCount = textArea.val().length
+    textArea.siblings(".charCount").html "
+      length: #{textArea.val().length} characters (#{
+        if charCount <= 160 then "1 SMS" else "#{Math.ceil(charCount/160)} SMSs)"
+
+      }
+    "
+
   showDiff:  =>
     @$("#diff").html "<h2>Loading differences, please wait...</h2>"
     production = new PouchDB(Jackfruit.database.name.replace("-development", ""))
@@ -218,7 +230,11 @@ class QuestionSetView extends Backbone.View
       @render()
 
 
-  renderSyntaxHighlightedCodeWithTextareaForEditing: (propertyPath, preStyle = "") => 
+  renderSyntaxHighlightedCodeWithTextareaForEditing: (options) =>
+    propertyPath = options.propertyPath
+    preStyle = options.preStyle or ""
+    example = options.example
+
     code = if propertyPath
       get(@questionSet.data, propertyPath)
     else
@@ -237,9 +253,16 @@ class QuestionSetView extends Backbone.View
     "
       <pre style='#{preStyle}'><code class='toggleToEdit'>#{code}</code></pre>
       <div class='codeEditor' style='display:none'>
+        #{
+          if example
+
+            "Examples:<br/><code class='example'>#{example}</code><br/>"
+          else ""
+        }
         <textarea style='display:block' class='code' data-property-path=#{propertyPath}>#{code}</textarea>
         <button class='save'>Save</button>
         <button class='cancel'>Cancel</button>
+        <span class='charCount' style='color:grey'></span>
         #{ if propertyPath
           "
             <br/>
@@ -356,7 +379,12 @@ class QuestionSetView extends Backbone.View
         #{@jsonDiffCss()}
 
       </style>
-      <div style='float:right; width:200px; border: 1px solid;' id='interact'>
+      <div style='float:right; width:200px; border: 1px solid;'>
+        <a href='#messaging/#{@serverName}/#{@databaseOrGatewayName}/#{@questionSet.name()}'>Manage Messaging</a>
+        <br/>
+        <br/>
+        <br/>
+        <div style='width:200px; border: 1px solid;' id='interact'/>
       </div>
       #{
         if @isTextMessageQuestionSet()
@@ -407,7 +435,9 @@ class QuestionSetView extends Backbone.View
                             </div>
                           </div>
                           #{
-                            @renderSyntaxHighlightedCodeWithTextareaForEditing(property)
+                            @renderSyntaxHighlightedCodeWithTextareaForEditing
+                              propertyPath: property
+                              example: propertyMetadata.example
                           }
                         </div>
                       </div>
@@ -486,7 +516,15 @@ class QuestionSetView extends Backbone.View
                             <div>
                               <div data-type-of-code='#{property}' class='questionProperty code'>
                                 #{
-                                  @renderSyntaxHighlightedCodeWithTextareaForEditing(propertyPath)
+                                  if property is "url" and value.endsWith("mp3")
+                                    "<audio controls src='#{value}'></audio>"
+                                  else
+                                    ""
+                                }
+                                #{
+                                  @renderSyntaxHighlightedCodeWithTextareaForEditing
+                                    propertyPath: propertyPath
+                                    example: propertyMetadata.example
                                 }
                               </div>
                             </div>
@@ -582,7 +620,9 @@ class QuestionSetView extends Backbone.View
                   Edit Question Directly
                 </span>
                 #{
-                  @renderSyntaxHighlightedCodeWithTextareaForEditing("questions[#{index}]", "display:none")
+                  @renderSyntaxHighlightedCodeWithTextareaForEditing
+                    propertyPath: "questions[#{index}]"
+                    preStyle: "display:none"
                 }
               </div>
             </div>
@@ -609,9 +649,9 @@ class QuestionSetView extends Backbone.View
             #{
               #(for questionType, metadata of QuestionSet.questionProperties.type.options
               (for questionType, metadata of QuestionSet.getQuestionProperties().type.options
-                if metadata.limit? and metadata.limit is "coconut" and @isTextMessageQuestionSet()
+                if metadata.limit? and metadata.limit.match("coconut") and @isTextMessageQuestionSet()
                   ""
-                else if metadata.limit? and metadata.limit is "textMessages" and not @isTextMessageQuestionSet()
+                else if metadata.limit? and metadata.limit.match("textMessages") and not @isTextMessageQuestionSet()
                 else
                   "
                   <li>
@@ -632,7 +672,9 @@ class QuestionSetView extends Backbone.View
         <div class='description'>To view and edit the raw JSON code defining this question set you can click the heading below.</div>
         <h2 class='toggleNext'>Full Question Set Definition</h2>
         #{
-          @renderSyntaxHighlightedCodeWithTextareaForEditing(null, "display:none")
+          @renderSyntaxHighlightedCodeWithTextareaForEditing
+            propertyPath: null
+            preStyle: "display:none"
         }
       </div>
 
@@ -662,6 +704,7 @@ class QuestionSetView extends Backbone.View
 
     if @isTextMessageQuestionSet()
       @interactView = new InteractView()
+      @interactView.questionSetName = @questionSet.idOrName
       @interactView.setElement @$("#interact")
       @interactView.render()
 
@@ -693,7 +736,6 @@ class QuestionSetView extends Backbone.View
 
   isTextMessageQuestionSet: =>
     Jackfruit.dynamoDBClient?
-
 
   jsonDiffCss: => "
 .jsondiffpatch-delta{font-family:'Bitstream Vera Sans Mono','DejaVu Sans Mono',Monaco,Courier,monospace;font-size:12px;margin:0;padding:0 0 0 12px;display:inline-block}.jsondiffpatch-delta pre{font-family:'Bitstream Vera Sans Mono','DejaVu Sans Mono',Monaco,Courier,monospace;font-size:12px;margin:0;padding:0;display:inline-block}ul.jsondiffpatch-delta{list-style-type:none;padding:0 0 0 20px;margin:0}.jsondiffpatch-delta ul{list-style-type:none;padding:0 0 0 20px;margin:0}.jsondiffpatch-added .jsondiffpatch-property-name,.jsondiffpatch-added .jsondiffpatch-value pre,.jsondiffpatch-modified .jsondiffpatch-right-value pre,.jsondiffpatch-textdiff-added{background:#bfb}.jsondiffpatch-deleted .jsondiffpatch-property-name,.jsondiffpatch-deleted pre,.jsondiffpatch-modified .jsondiffpatch-left-value pre,.jsondiffpatch-textdiff-deleted{background:#fbb;text-decoration:line-through}.jsondiffpatch-unchanged,.jsondiffpatch-movedestination{color:gray;display:none}.jsondiffpatch-unchanged,.jsondiffpatch-movedestination>.jsondiffpatch-value{transition:all .5s;-webkit-transition:all .5s;overflow-y:hidden}.jsondiffpatch-unchanged-showing .jsondiffpatch-unchanged,.jsondiffpatch-unchanged-showing .jsondiffpatch-movedestination>.jsondiffpatch-value{max-height:100px}.jsondiffpatch-unchanged-hidden .jsondiffpatch-unchanged,.jsondiffpatch-unchanged-hidden .jsondiffpatch-movedestination>.jsondiffpatch-value{max-height:0}.jsondiffpatch-unchanged-hiding .jsondiffpatch-movedestination>.jsondiffpatch-value,.jsondiffpatch-unchanged-hidden .jsondiffpatch-movedestination>.jsondiffpatch-value{display:block}.jsondiffpatch-unchanged-visible .jsondiffpatch-unchanged,.jsondiffpatch-unchanged-visible .jsondiffpatch-movedestination>.jsondiffpatch-value{max-height:100px}.jsondiffpatch-unchanged-hiding .jsondiffpatch-unchanged,.jsondiffpatch-unchanged-hiding .jsondiffpatch-movedestination>.jsondiffpatch-value{max-height:0}.jsondiffpatch-unchanged-showing .jsondiffpatch-arrow,.jsondiffpatch-unchanged-hiding .jsondiffpatch-arrow{display:none}.jsondiffpatch-value{display:inline-block}.jsondiffpatch-property-name{display:inline-block;padding-right:5px;vertical-align:top}.jsondiffpatch-property-name:after{content:': '}.jsondiffpatch-child-node-type-array>.jsondiffpatch-property-name:after{content:': ['}.jsondiffpatch-child-node-type-array:after{content:'],'}div.jsondiffpatch-child-node-type-array:before{content:'['}div.jsondiffpatch-child-node-type-array:after{content:']'}.jsondiffpatch-child-node-type-object>.jsondiffpatch-property-name:after{content:': {'}.jsondiffpatch-child-node-type-object:after{content:'},'}div.jsondiffpatch-child-node-type-object:before{content:'{'}div.jsondiffpatch-child-node-type-object:after{content:'}'}.jsondiffpatch-value pre:after{content:','}li:last-child>.jsondiffpatch-value pre:after,.jsondiffpatch-modified>.jsondiffpatch-left-value pre:after{content:''}.jsondiffpatch-modified .jsondiffpatch-value{display:inline-block}.jsondiffpatch-modified .jsondiffpatch-right-value{margin-left:5px}.jsondiffpatch-moved .jsondiffpatch-value{display:none}.jsondiffpatch-moved .jsondiffpatch-moved-destination{display:inline-block;background:#ffb;color:#888}.jsondiffpatch-moved .jsondiffpatch-moved-destination:before{content:' => '}ul.jsondiffpatch-textdiff{padding:0}.jsondiffpatch-textdiff-location{color:#bbb;display:inline-block;min-width:60px}.jsondiffpatch-textdiff-line{display:inline-block}.jsondiffpatch-textdiff-line-number:after{content:','}.jsondiffpatch-error{background:red;color:white;font-weight:bold}

@@ -8,6 +8,7 @@ global._ = require 'underscore'
 global.PouchDB = require('pouchdb-core')
 PouchDB
   .plugin(require 'pouchdb-adapter-http')
+  .plugin(require 'pouchdb-adapter-idb')
   .plugin(require 'pouchdb-mapreduce')
   .plugin(require 'pouchdb-replication')
   .plugin(require 'pouchdb-upsert')
@@ -28,7 +29,7 @@ global.Jackfruit =
     Ceshhar: "https://ceshhar.cococloud.co"
     Keep: "https://keep.cococloud.co"
     Local: "http://localhost:5984"
-    Tusome:
+    MikeAWS:
       region: "us-east-1"
       IdentityPoolId: 'us-east-1:fda4bdc9-5adc-41a0-a34e-3156f7aa6691'
   gooseberryEndpoint: "https://f9l1259lmb.execute-api.us-east-1.amazonaws.com/gooseberry"
@@ -61,14 +62,18 @@ Jackfruit.setupDatabase = (serverName, databaseOrGatewayName) =>
     Jackfruit.database = null
 
     unless Jackfruit.dynamoDBClient?
-      region = Jackfruit.knownDatabaseServers[Jackfruit.serverName].region
-      Jackfruit.dynamoDBClient = new DynamoDBClient(
-        region: region
-        credentials: fromCognitoIdentityPool(
-          client: new CognitoIdentityClient({region})
-          identityPoolId: Jackfruit.knownDatabaseServers[Jackfruit.serverName].IdentityPoolId
+      if Cookie.get("password") is "hungry for fruit" or prompt("Password:").toLowerCase() is "hungry for fruit"
+        Cookie.set("password","hungry for fruit")
+
+
+        region = Jackfruit.knownDatabaseServers[Jackfruit.serverName].region
+        Jackfruit.dynamoDBClient = new DynamoDBClient(
+          region: region
+          credentials: fromCognitoIdentityPool(
+            client: new CognitoIdentityClient({region})
+            identityPoolId: Jackfruit.knownDatabaseServers[Jackfruit.serverName].IdentityPoolId
+          )
         )
-      )
 
     Jackfruit.updateGateway(databaseOrGatewayName)
 

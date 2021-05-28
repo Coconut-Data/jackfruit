@@ -1,4 +1,6 @@
 _ = require 'underscore'
+cloneDeep = require('lodash/cloneDeep')
+
 
 class QuestionSet
   constructor: (@idOrName) ->
@@ -61,7 +63,7 @@ QuestionSet.properties =
 
 QuestionSet.templateForPropertyType = (type) =>
   properties = QuestionSet.getQuestionProperties()
-  properties.type.options[type]?.template
+  cloneDeep(properties.type.options[type]?.template) # cloneDeep makes sure we don't overwrite the original template
 
 QuestionSet.propertyList = =>
   _(QuestionSet.properties()).keys()
@@ -83,7 +85,7 @@ QuestionSet.questionProperties  =
       "description":"This replaces the normal label. It allows calculated values inside the label to enable dynamically generated text. For example: '\#{ResultOfQuestion('First Name')}, What is your middle name?' will start the question with the value previously entered for 'First Name'"
       "data-type": "text"
     "action_on_change":
-      "description":"Coffeescript code that will be executed after the answer to this question changes"
+      "description":"Coffeescript code that will be executed after the answer to this question changes. Helper functions like showMessage() and warn() can be used here to display messages to the user when a value changes."
       "data-type": "coffeescript"
     "action_on_questions_loaded":
       "description":"Coffeescript code that will be executed after the questions and their current answers are loaded."
@@ -118,6 +120,12 @@ QuestionSet.questionProperties  =
         "image":
           "description": "Displays an image. TODO describe how this works." # TODO describe how this works, paths to the image, etc
           "limit": "coconut"
+        "audio":
+          "description": "Plays an audio file" # TODO describe how this works, paths to the image, etc
+          template: [
+            type: "audio"
+            "url": "http://example.org/example.mp3"
+          ]
         "hidden":
           "description": "Used to set data that doesn't require input from the user."
           "limit": "coconut"
@@ -142,6 +150,11 @@ QuestionSet.questionProperties  =
     "validation":
       "description": "Coffeescript code that will be executed when the value changed. If the result is anything but null, then validation fails, and the result is used as an error message."
       "data-type": "coffeescript"
+      "example": "return 'Age must be between 0 and 200' if value < 0 or value > 200 # Makes sure the value is between 0 and 200<br/>if value.match(\" \") then null else \"You must use 2 official names.\" #Checks for a space in the answer, since two names will need a space in between them."
+    "completeQuestionSetIf": 
+      "description": "Coffeescript code that will be executed when the value is changed. If the code returns true, then the rest of the questions will be skipped (including required fields and validation) and the question set will be marked as complete."
+      "data-type": "coffeescript"
+      "example": "value is 'No' # This will skip the rest of the questions if the value is 'No'"
     "skip_logic":
       "description": "Coffeescript code that will be executed every time any value in the question set changes. If the result is true, then the question will be hidden, and validation will not be required to pass in order for the answer, and therefore the entire question set to be considered valid. ResultOfQuestion('What is your age') and PreviousQuestionResult() are helpful functions."
       "data-type": "coffeescript"
@@ -160,6 +173,16 @@ QuestionSet.questionProperties  =
       "description": "The name of the question set to be inserted as a repeateable section"
       "data-type": "text"
       "required": true
+    "url": 
+      "description": "Path for the resource"
+      "data-type": "text"
+    "disable_fuzzy_search": 
+      "description": "For radio buttons, disable fuzzy searching if only perfect matches to the options should be accepted. Value should be true or false"
+      "data-type": "select"
+      "options": [
+        true
+        false
+      ]
   }
 
 QuestionSet.questionPropertyList = =>

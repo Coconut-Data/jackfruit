@@ -9,8 +9,8 @@ humanize = require("underscore.string/humanize")
 slugify = require("underscore.string/slugify")
 underscored = require("underscore.string/underscored")
 
-{QueryCommand} = require "@aws-sdk/client-dynamodb"
-{unmarshall} = require("@aws-sdk/util-dynamodb")
+{QueryCommand,DeleteItemCommand} = require "@aws-sdk/client-dynamodb"
+{marshall,unmarshall} = require("@aws-sdk/util-dynamodb")
 PivotTable = require 'pivottable'
 
 
@@ -22,8 +22,32 @@ class ResultsView extends Backbone.View
   events: =>
     "click #download": "csv"
     "click #pivotButton": "loadPivotTable"
+    "click button#edit": "edit"
+    "click button#delete": "delete"
 
-  csv: => @tabulator.download "csv", "CoconutTableExport.csv"
+  edit: =>
+    if Jackfruit.dynamoDBClient
+      @$("#deleteDiv").show()
+      @tabulator.getColumns()[0].show()
+
+  delete: =>
+    itemsToDelete = @tabulator.getSelectedData()
+    if itemsToDelete.length  > 0 and confirm "Are you sure you want to delete #{itemsToDelete.length} items?"
+      @$("#tabulator").html "Deleting selected items, please wait..."
+      await Promise.all(for item in itemsToDelete
+        Jackfruit.dynamoDBClient.send(
+          new DeleteItemCommand
+            TableName: "Gateway-#{@databaseName}"
+            Key: 
+              marshall
+                startTime: item._startTime
+                source: item.source
+
+        )
+      )
+      @render()
+
+  csv: => @tabulator.download "csv", "#{router.resultsView.questionSet.name()}-#{moment().format("YYYY-MM-DD_HHmm")}.csv"
 
   getResults: =>
     questionSetName = @questionSet.name()
@@ -35,21 +59,35 @@ class ResultsView extends Backbone.View
         include_docs: true
       .then (result) => Promise.resolve _(result.rows)?.pluck "doc"
     else if Jackfruit.dynamoDBClient
+      #TODO store results in local pouchdb and then just get updates
 
-      result = await Jackfruit.dynamoDBClient.send(
-        new QueryCommand
-          TableName: "Gateway-Web"
-          IndexName: "resultsByQuestionSetAndUpdateTime"
-          KeyConditionExpression: 'questionSetName = :questionSetName'
-          ExpressionAttributeValues:
-            ':questionSetName':
-              'S': questionSetName
-          ScanIndexForward: false
-      )
+      items = []
 
-      Promise.resolve(for item in result.Items
-        unmarshall(item).reporting
-      )
+      loop
+
+        result = await Jackfruit.dynamoDBClient.send(
+          new QueryCommand
+            TableName: "Gateway-#{@databaseName}"
+            IndexName: "resultsByQuestionSetAndUpdateTime"
+            KeyConditionExpression: 'questionSetName = :questionSetName'
+            ExpressionAttributeValues:
+              ':questionSetName':
+                'S': questionSetName
+            ScanIndexForward: false
+            ExclusiveStartKey: result?.LastEvaluatedKey
+        )
+
+        items.push(...for item in result.Items
+          dbItem = unmarshall(item)
+          item = dbItem.reporting
+          item._startTime = dbItem.startTime # Need this to be able to delete
+          item
+        )
+
+        break unless result.LastEvaluatedKey #lastEvaluatedKey means there are more
+
+      Promise.resolve(items)
+
 
 
 
@@ -58,6 +96,10 @@ class ResultsView extends Backbone.View
     @$el.html "
       <h2>Results for #{@questionSet.name()}</h2>
       <button id='download'>CSV</button>
+      <button id='edit'>Edit</button>
+      <div id='deleteDiv' style='display:none'>
+        Select rows to delete then click <button id='delete'>Delete</button>.
+      </div>
       <div id='tabulator'></div>
       <div>
         Number of Rows: 
@@ -73,18 +115,45 @@ class ResultsView extends Backbone.View
     "
     results = await @getResults()
 
-    columns = {}
+    orderedColumnNames = @questionSet.data.questions.map (question) => question.label
 
-    for result in _(results).sample(200)
+    columnNamesFromData = {}
+    for result in _(results).sample(10000) # In case we have results from older question sets with different questions we will find it here. Use sample to put an upper limit on how many to check. (If the number of results is less than the sample target it just uses the number of results.
       for key in Object.keys(result)
-        columns[key] = true
+        columnNamesFromData[key] = true
 
-    columns = for column in Object.keys(columns)
+    # Merge the column names with the current question order taking preference
+    for columnName in Object.keys(columnNamesFromData)
+      unless orderedColumnNames.includes(columnName)
+        orderedColumnNames.push columnName
+
+    columnsWithPeriodRemoved = []
+    columns = for column in orderedColumnNames
+      field = if column.match(/\./)
+        columnsWithPeriodRemoved.push column
+        column.replace(/\./,"")
+      else
+        column
+
       {
         title: column
-        field: column
+        field: field
         headerFilter: "input"
       }
+
+    columns.unshift
+      formatter:"rowSelection"
+      titleFormatter:"rowSelection"
+      align:"center"
+      headerSort:false
+
+    console.log columns
+    console.log results
+
+    if columnsWithPeriodRemoved.length > 0
+      for result in results
+        for column in columnsWithPeriodRemoved
+          result[column.replace(/\./,"")] = result[column]
 
     @tabulator = new Tabulator "#tabulator",
       height: 400
@@ -94,9 +163,8 @@ class ResultsView extends Backbone.View
         @$("#numberRows").html(rows.length)
       dataLoaded: (data) =>
         @$("#numberRows").html(data.length)
-
-
-
+    @tabulator.getColumns()[0].hide()
+    @tabulator.getColumn("_startTime").hide()
 
   loadPivotTable: =>
     data = @tabulator.getData("active")

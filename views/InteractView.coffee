@@ -16,6 +16,7 @@ class InteractView extends Backbone.View
         #{request}
       </div>
     "
+    @$("#messages")[0].scrollTop = @$("#messages")[0].scrollHeight
     @$("#message").val("")
     response = await axios(
       method: 'post'
@@ -34,6 +35,7 @@ class InteractView extends Backbone.View
         #{response.data}
       </div>
     "
+    @$("#messages")[0].scrollTop = @$("#messages")[0].scrollHeight
 
   render: =>
     @$el.html "
@@ -50,10 +52,10 @@ class InteractView extends Backbone.View
         }
       </style>
       <div style='background-color:black; color:white;'>
-      Send messages to Gateway #{Jackfruit.gateway.gatewayName}
+      Send and receive messages with #{Jackfruit.gateway.gatewayName}
       </div>
       <div id='messages'></div>
-      <input id='message' value='Start #{router.questionSetView.questionSet.idOrName}'></input>
+      <input id='message' value='Start #{@questionSetName}'></input>
       <button id='send'>Send</button>
     "
 
