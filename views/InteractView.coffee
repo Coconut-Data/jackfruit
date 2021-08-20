@@ -12,7 +12,7 @@ class InteractView extends Backbone.View
   send: =>
     request = @$("#message").val()
     @$("#messages").append "
-      <div class='request'>
+      <div class='interact-message request'>
         #{request}
       </div>
     "
@@ -31,7 +31,7 @@ class InteractView extends Backbone.View
 
 
     @$("#messages").append "
-      <div class='response'>
+      <div class='interact-message response'>
         #{response.data}
       </div>
     "
@@ -40,11 +40,19 @@ class InteractView extends Backbone.View
   render: =>
     @$el.html "
       <style>
+        .interact-message{
+          border: solid 5px white;
+          padding:5px;
+        }
         .request{
           background-color: lightgreen;
+          text-align: right;
+          border-left: solid 15px white;
         }
         .response{
-          background-color: gray;
+          background-color: #00259cc7;
+          color:white;
+          border-right: solid 15px white;
         }
         #messages{
           overflow: scroll;

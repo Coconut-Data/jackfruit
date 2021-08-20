@@ -10,12 +10,10 @@ class UsersView extends Backbone.View
 
     addUser: =>
       username = prompt "What is the new username (phone number for DMSOs)?"
-      username = "user.#{username}"
+      username = "user.#{username.toLowerCase()}"
       password = prompt "What is the new password?"
       password = (crypto.pbkdf2Sync password, '', 1000, 256/8, 'sha256').toString('base64')
-
-
-      @tabulator.addRow
+      userDoc =
         _id: username
         district: []
         name: ""
@@ -26,13 +24,18 @@ class UsersView extends Backbone.View
         collection: "user"
         isApplicationDoc: true
         password: password
+
+      @tabulator.addRow userDoc
         
+      Jackfruit.database.upsert data._id,  =>
+        userDoc
+
     resetPassword: (username) =>
       unless _(username).isString()
         username = prompt "What is the user's id or username that you wish to reset?"
         username = "user.#{username}" unless username.match(/^user/)
 
-      unless (_(await @users()).pluck("_id")).includes username
+      unless (_(await @getUsers()).pluck("_id")).includes username
         alert "Invalid username: #{username}"
         @resetPassword(null)
 
@@ -49,7 +52,7 @@ class UsersView extends Backbone.View
           console.error error
         alert "Password has been reset"
 
-    users: =>
+    getUsers: =>
       Jackfruit.database.allDocs
         startkey: "user"
         endkey: "user\ufff0"
@@ -69,15 +72,25 @@ class UsersView extends Backbone.View
         <div id='userTabulator'/>
       "
 
-      columns = for field in [
-          "_id"
-          "name"
-          "district"
-          "email"
-          "roles"
-          "comments"
-          "inactive"
-        ]
+      @users = await @getUsers()
+
+      userProperties = {}
+      for user in @users
+        for key in Object.keys(user)
+          userProperties[key] = true
+
+      userProperties = _(Object.keys(userProperties)).difference [
+        "_rev"
+        "token"
+        "couchapp"
+        "password"
+        "isApplicationDoc"
+        "collection"
+      ]
+
+      console.log userProperties
+
+      columns = for field in userProperties
 
         result = {
           title: field
@@ -100,17 +113,19 @@ class UsersView extends Backbone.View
       @tabulator = new Tabulator "#userTabulator",
         height: 400
         columns: columns
-        data: await @users()
+        data: await @getUsers()
         cellEdited: (cell) =>
           oldValue = cell.getOldValue()
           value = cell.getValue()
           isUpdated = if _(value).isArray()
             not _(oldValue).isEqual(value)
           else
+            console.log "ASDASD"
             cell.getOldValue() isnt cell.getValue() and
-            cell.getOldValue() isnt null and 
+            #cell.getOldValue() isnt null and 
             cell.getValue() isnt ""
 
+          console.log isUpdated
 
           if isUpdated and confirm("Are you sure you want to change #{cell.getField()} for #{cell.getData()._id} from '#{oldValue}' to '#{value}'")
             data = cell.getRow().getData()

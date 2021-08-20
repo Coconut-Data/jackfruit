@@ -138,25 +138,36 @@ class DatabaseView extends Backbone.View
 
   showDiff: =>
     @$("#diff").html "<h2>Loading differences, please wait...</h2>"
+    messages = ""
     production = new PouchDB(Jackfruit.database.name.replace("-development", ""))
     questionSets = for questionSetId in @questionSets
-      [await Jackfruit.database.get(questionSetId), await production.get(questionSetId)]
+      developmentDatabase = await Jackfruit.database.get(questionSetId)
+      productionDatabase = await production.get(questionSetId)
+        .catch (error) => Promise.resolve null
+      [developmentDatabase, productionDatabase]
+
 
     @$("#diff").html ""
 
     for questionSetPair in questionSets
       [developmentVersion, productionVersion] = questionSetPair
-      if JSON.stringify(developmentVersion.questions) isnt JSON.stringify(productionVersion.questions)
-        delta = JsonDiffPatch.create(
-          objectHash: (obj, index) =>
-            obj.label
-        ).diff(productionVersion.questions, developmentVersion.questions)
+      if productionVersion is null
+        @$("#diff").append "<hr>Production is MISSING #{developmentVersion._id}<br/>"
+      else
+        if JSON.stringify(developmentVersion.questions) isnt JSON.stringify(productionVersion.questions)
+          delta = JsonDiffPatch.create(
+            objectHash: (obj, index) =>
+              obj.label
+          ).diff(productionVersion.questions, developmentVersion.questions)
 
-        @$("#diff").append "<hr/>#{developmentVersion._id}<br/>#{
-            JsonDiffPatch.formatters.html.format(delta, developmentVersion.questions)
-          }
-        "
-        JsonDiffPatch.formatters.html.hideUnchanged()
+          @$("#diff").append "<hr/>
+
+            <a href='#questionSet/#{@serverName}/#{@databaseName}/#{developmentVersion._id}'>#{developmentVersion._id}</a><br/>
+            #{
+              JsonDiffPatch.formatters.html.format(delta, developmentVersion.questions)
+            }
+          "
+          JsonDiffPatch.formatters.html.hideUnchanged()
 
 
 

@@ -379,16 +379,18 @@ class QuestionSetView extends Backbone.View
         #{@jsonDiffCss()}
 
       </style>
-      <div style='float:right; width:200px; border: 1px solid;'>
-        <a href='#messaging/#{@serverName}/#{@databaseOrGatewayName}/#{@questionSet.name()}'>Manage Messaging</a>
-        <br/>
-        <br/>
-        <br/>
-        <div style='width:200px; border: 1px solid;' id='interact'/>
-      </div>
       #{
         if @isTextMessageQuestionSet()
-          "<h2>Gateway: <a href='#gateway/#{@serverName}/#{@databaseOrGatewayName}'>#{@databaseOrGatewayName}</a>"
+          "
+          <div style='float:right; width:200px; border: 1px solid;'>
+            <a href='#messaging/#{@serverName}/#{@databaseOrGatewayName}/#{@questionSet.name()}'>Manage Messaging</a>
+            <br/>
+            <br/>
+            <br/>
+            <div style='width:200px; border: 1px solid;' id='interact'/>
+          </div>
+          <h2>Gateway: <a href='#gateway/#{@serverName}/#{@databaseOrGatewayName}'>#{@databaseOrGatewayName}</a>
+          "
         else
           "<h2>Application: <a href='#database/#{@serverName}/#{@databaseOrGatewayName}'>#{@databaseOrGatewayName}</a>"
       }
@@ -541,7 +543,10 @@ class QuestionSetView extends Backbone.View
                                 <select style='display:block' data-property-path='#{propertyPath}'>
                                 #{
                                   _(propertyMetadata.options).map (optionMetadata, option) =>
-                                    "<option #{if option is question[property] then "selected=true" else ""}>#{option}</option>"
+                                    if _(optionMetadata).isBoolean()
+                                      "<option #{if optionMetadata is question[property] then "selected=true" else ""}>#{optionMetadata}</option>"
+                                    else
+                                      "<option #{if option is question[property] then "selected=true" else ""}>#{option}</option>"
                                   .join ""
                                 }
                                 </select>
