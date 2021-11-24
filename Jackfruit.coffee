@@ -81,6 +81,10 @@ Jackfruit.setupDatabase = (serverName, databaseOrGatewayName) =>
     Jackfruit.dynamoDBClient = null
     username = Cookie.get("username")
     password = Cookie.get("password")
+    unless username and password
+      console.log "CHANGING"
+      Jackfruit.targetUrl = document.location.hash.replace(/#/,"")
+      return router.navigate "server/#{Jackfruit.serverName}", trigger:true
     serverUrlWithCredentials = "#{Jackfruit.knownDatabaseServers[serverName]}".replace(/:\/\//, "://#{username}:#{password}@")
     Jackfruit.database = new PouchDB("#{serverUrlWithCredentials}/#{databaseOrGatewayName}")
     Jackfruit.databaseName = databaseOrGatewayName

@@ -1,6 +1,10 @@
 Backbone = require 'backbone'
-UsersView = require './UsersView'
+global.UsersView = require './UsersView'
 JsonDiffPatch = require 'jsondiffpatch'
+
+hljs = require 'highlight.js/lib/highlight';
+coffeescriptHighlight = require 'highlight.js/lib/languages/coffeescript';
+hljs.registerLanguage('coffeescript', coffeescriptHighlight);
 
 class DatabaseView extends Backbone.View
   render: =>
@@ -64,6 +68,19 @@ class DatabaseView extends Backbone.View
         <h2>Users</h2>
         <div id='users'></div>
 
+        <h2>Configuration</h2>
+        <div id='configuration'>
+          #{
+            configuration = JSON.stringify(await Jackfruit.database.get("JackfruitConfig").catch (error) => Promise.resolve "")
+          }
+          <pre style=''><code class='toggleToEdit'>#{configuration}</code></pre>
+          <div class='codeEditor'>
+            <textarea id='JackfruitConfig' style='display:block' class='code'>#{configuration}</textarea>
+            <button class='save'>Save</button>
+            <button class='cancel'>Cancel</button>
+          </div>
+        </div>
+
       "
       @questionSets = []
       @$("#questions").html (for row in result.rows
@@ -93,6 +110,13 @@ class DatabaseView extends Backbone.View
 
       unless await Jackfruit.canCreateDesignDoc()
         @$("#activePlugins").before "Plugins can only be changed by administrators"
+
+      hljs.configure
+        languages: ["coffeescript", "json"]
+        useBR: false
+
+      @$('pre code').each (i, snippet) =>
+        hljs.highlightBlock(snippet);
 
 
   loadPluginData: =>
@@ -135,6 +159,13 @@ class DatabaseView extends Backbone.View
     "click #updateFromProduction": "updateFromProduction"
     "click #showDiff": "showDiff"
     "click #deploy": "deploy"
+    "click button.save": "save"
+
+  save: =>
+    await Jackfruit.database.put JSON.parse(@$("#JackfruitConfig").val())
+    .catch (error) => alert error
+    @render()
+
 
   showDiff: =>
     @$("#diff").html "<h2>Loading differences, please wait...</h2>"

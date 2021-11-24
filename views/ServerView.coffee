@@ -248,6 +248,12 @@ class ServerView extends Backbone.View
   updateUsernamePassword: =>
     Cookie.set "username", @$('#username').val()
     Cookie.set "password", @$('#password').val()
+
+    if Jackfruit.targetUrl
+      targetUrl = Jackfruit.targetUrl
+      Jackfruit.targetUrl = null
+      return router.navigate targetUrl, trigger:true
+
     @render()
 
   login: =>
@@ -255,13 +261,12 @@ class ServerView extends Backbone.View
     @password = Cookie.get("password")
 
     unless @username and @password
-      Promise.reject()
+      return Promise.reject()
 
     @fetchDatabaseList()
 
   fetchDatabaseList: =>
     new Promise (resolve,reject) =>
-      console.log Jackfruit.serverName
       if Jackfruit.knownDatabaseServers[Jackfruit.serverName].IdentityPoolId? # DynamoDB
         @isDynamoDB = true
 

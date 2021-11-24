@@ -15,6 +15,7 @@ striptags = require 'striptags'
 Sortable = require 'sortablejs'
 global.Coffeescript = require 'coffeescript'
 JsonDiffPatch = require 'jsondiffpatch'
+underscored = require("underscore.string/underscored")
 
 hljs = require 'highlight.js/lib/highlight';
 coffeescriptHighlight = require 'highlight.js/lib/languages/coffeescript';
@@ -414,7 +415,21 @@ class QuestionSetView extends Backbone.View
         </div>
         -->
 
-        <h3><a href='#results/#{@serverName}/#{@databaseOrGatewayName}/#{@questionSet.name()}'>Results</a></h3>
+        <h3><a id='resultsButton' href='#results/#{@serverName}/#{@databaseOrGatewayName}/#{@questionSet.name()}'>Results</a></h3>
+        #{
+          _.delay => # Delay it so the rest of the page loads quickly
+            questionSetResultName = underscored(@questionSet.name().toLowerCase())
+            startkey = "result-#{questionSetResultName}"
+            endkey = "result-#{questionSetResultName}-\ufff0"
+            Jackfruit.database.allDocs
+              startkey: startkey
+              endkey: endkey
+            .then (result) =>
+              @$("#resultsButton").html "Results (#{result.rows.length})"
+          , 1000
+          ""
+        }
+
 
         <h3 style='display:inline'>Configuration</h3>
         <span class='toggleNext clickToEdit'>Edit</span>
@@ -426,7 +441,7 @@ class QuestionSetView extends Backbone.View
               propertyMetadata = QuestionSet.properties[property]
               if propertyMetadata
                 switch propertyMetadata["data-type"]
-                  when "coffeescript", "object","text"
+                  when "coffeescript", "object","text", "icon-picker"
                     "
                       <div>
                         <div class='questionSetProperty'>
@@ -502,6 +517,11 @@ class QuestionSetView extends Backbone.View
                   _(question).map (value, property) =>
                     propertyMetadata = QuestionSet.questionProperties[property]
                     if propertyMetadata 
+
+                      dataType = propertyMetadata["data-type"]
+                      if question.type is "autocomplete from code" and question["autocomplete-options"]
+                        dataType = "coffeescript"
+
                       propertyPath = "questions[#{index}][#{property}]"
                       "
                       <hr/>
@@ -512,13 +532,13 @@ class QuestionSetView extends Backbone.View
                           #{propertyMetadata.description}
                         </div>
                       </div>
-                      " +  switch propertyMetadata["data-type"]
+                      " +  switch dataType
                         when "coffeescript", "text", "json"
                           "
                             <div>
                               <div data-type-of-code='#{property}' class='questionProperty code'>
                                 #{
-                                  if property is "url" and value.endsWith("mp3")
+                                  if property is "url" and value?.endsWith("mp3")
                                     "<audio controls src='#{value}'></audio>"
                                   else
                                     ""
@@ -556,6 +576,7 @@ class QuestionSetView extends Backbone.View
                             </div>
                           "
                         when "array"
+                          console.log question
                           value = "Example Option 1, Example Option 2" unless value
                           "
                             <div>

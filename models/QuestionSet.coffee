@@ -59,6 +59,10 @@ QuestionSet.properties =
     "complete_message": 
       "description": "When the questions have been completed, this message will be sent to finish. You can insert calculated values including captured data. For example. 'Thanks for your answers \#{ResultOfQuestion('Name')}'"
       "data-type": "text"
+    "icon":
+      "description": "Icon to display for this question set. Find them <a href='https://fonts.google.com/icons?selected=Material+Icons:settings&icon.query=setting'>here</a>."
+      "data-type": "icon-picker"
+      "example": "home"
   }
 
 QuestionSet.templateForPropertyType = (type) =>
@@ -148,7 +152,7 @@ QuestionSet.questionProperties  =
       "data-type": "array"
       # TODO - is there an option to allow multiple selections?
     "validation":
-      "description": "Coffeescript code that will be executed when the value changed. If the result is anything but null, then validation fails, and the result is used as an error message."
+      "description": "Coffeescript code that will be executed when the value changed. The variable 'value' is set to the currently entered value and is available for use by the code. If the result is anything but null, then validation fails, and the result is used as an error message."
       "data-type": "coffeescript"
       "example": "return 'Age must be between 0 and 200' if value < 0 or value > 200 # Makes sure the value is between 0 and 200<br/>if value.match(\" \") then null else \"You must use 2 official names.\" #Checks for a space in the answer, since two names will need a space in between them."
     "completeQuestionSetIf": 
