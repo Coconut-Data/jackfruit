@@ -139,6 +139,9 @@ QuestionSet.questionProperties  =
         "qrcode":
           "description": "Scan a QR code and save the result as text"
           "limit": "coconut"
+        "photo":
+          "description": "Take a photo and save the image as part of the results"
+          "limit": "coconut"
         "repeatableQuestionSet":
           "description": "Use another question set to insert a section of repeable questions"
       }

@@ -9,6 +9,15 @@ class UsersView extends Backbone.View
     "click button#addUsers": "addUsers"
     "click button#resetPassword": "resetPassword"
     "click button#addColumn": "addColumn"
+    "click button#addTamarindColumns": "addTamarindColumns"
+
+  addTamarindColumns: =>
+    @newColumns or= []
+    @newColumns.push "Tamarind Access"
+    @newColumns.push "Tamarind CSV"
+    @newColumns.push "Tamarind Indexes Queries Calculated-Fields"
+    @newColumns.push "Tamarind Editing"
+    @render()
 
   addColumn: =>
     @newColumns or= []
@@ -77,6 +86,7 @@ class UsersView extends Backbone.View
       <button id='addUsers'>Add multiple users from JSON</button>
       <button id='resetPassword'>Reset a user's password</button>
       <button id='addColumn'>Add a column</button>
+      <button id='addTamarindColumns'>Add Tamarind columns</button>
 
       <div id='userTabulator'/>
     "
@@ -142,6 +152,9 @@ class UsersView extends Backbone.View
             data
         else
           cell.restoreOldValue()
+
+    @$("#addTamarindColumns").hide() if @tabulator.getColumns().map((n) => n.getField()).includes "Tamarind Access"
+
 
   addUsers: (users) =>
 

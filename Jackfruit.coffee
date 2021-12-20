@@ -31,7 +31,7 @@ global.Jackfruit =
     Local: "http://localhost:5984"
     MikeAWS:
       region: "us-east-1"
-      IdentityPoolId: 'us-east-1:fda4bdc9-5adc-41a0-a34e-3156f7aa6691'
+      IdentityPoolId: 'us-east-1:INSERT_HERE'
   gooseberryEndpoint: "https://f9l1259lmb.execute-api.us-east-1.amazonaws.com/gooseberry"
 
 Jackfruit.serverCredentials = {}
