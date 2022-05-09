@@ -4,6 +4,7 @@ Backbone.$  = $
 global.Cookie = require 'js-cookie'
 global.moment = require 'moment'
 global._ = require 'underscore'
+Encryptor = require('simple-encryptor')
 
 global.PouchDB = require('pouchdb-core')
 PouchDB
@@ -29,10 +30,10 @@ global.Jackfruit =
     Ceshhar: "https://ceshhar.cococloud.co"
     Keep: "https://keep.cococloud.co"
     Local: "http://localhost:5984"
-    MikeAWS:
+    Tusome22340:
       region: "us-east-1"
-      IdentityPoolId: 'us-east-1:INSERT_HERE'
-  gooseberryEndpoint: "https://f9l1259lmb.execute-api.us-east-1.amazonaws.com/gooseberry"
+      EncryptedIdentityPoolId: '41d30953e2420e2c8af62881a82617ada228e9a809847879a9ee9fc34fafa5cd54ecfea4eb912295b9053549023e3bd1H7gVNDJxH0SO3zAerZ+2G7Fj3PcOLXZCF2eDiflmFic8netSzdmB9pG4dZrxhqySi7qFSaxBAqNXEzp6QDesNA=='
+  gooseberryEndpoint: "https://qegqsa53znvkq5pqp4kig2andi0jjtso.lambda-url.us-east-1.on.aws/"
 
 Jackfruit.serverCredentials = {}
 for name, url of Jackfruit.knownDatabaseServers
@@ -58,20 +59,28 @@ Jackfruit.canCreateDesignDoc = =>
 Jackfruit.setupDatabase = (serverName, databaseOrGatewayName) =>
   Jackfruit.serverName = serverName
 
-  if Jackfruit.knownDatabaseServers[Jackfruit.serverName].IdentityPoolId # DynamoDB
+  if Jackfruit.knownDatabaseServers[Jackfruit.serverName].EncryptedIdentityPoolId # DynamoDB
     Jackfruit.database = null
 
     unless Jackfruit.dynamoDBClient?
-      if Cookie.get("password") is "hungry for fruit" or prompt("Password:").toLowerCase() is "hungry for fruit"
-        Cookie.set("password","hungry for fruit")
+      # This is encrypted with the tool in the scripts directory
+      password = Cookie.get("password") or prompt("Password for Jackfruit serverName:")
+      decryptedIdentityPoolId = Encryptor(password+password+password).decrypt(Jackfruit.knownDatabaseServers[Jackfruit.serverName].EncryptedIdentityPoolId)?[0]
 
+      unless decryptedIdentityPoolId?.match(/:/) # Looks like an IdentityPoolId
+        Cookie.set("password", "")
+        document.location.reload()
+
+      if decryptedIdentityPoolId?.match(/:/) # Looks like an IdentityPoolId
+        Jackfruit.knownDatabaseServers[Jackfruit.serverName].IdentityPoolId = decryptedIdentityPoolId
+        Cookie.set("password",password)
 
         region = Jackfruit.knownDatabaseServers[Jackfruit.serverName].region
         Jackfruit.dynamoDBClient = new DynamoDBClient(
           region: region
           credentials: fromCognitoIdentityPool(
             client: new CognitoIdentityClient({region})
-            identityPoolId: Jackfruit.knownDatabaseServers[Jackfruit.serverName].IdentityPoolId
+            identityPoolId: decryptedIdentityPoolId
           )
         )
 
