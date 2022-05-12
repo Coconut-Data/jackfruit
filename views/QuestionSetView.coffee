@@ -16,6 +16,7 @@ Sortable = require 'sortablejs'
 global.Coffeescript = require 'coffeescript'
 JsonDiffPatch = require 'jsondiffpatch'
 underscored = require("underscore.string/underscored")
+MersenneTwister = require('mersenne-twister');
 
 hljs = require 'highlight.js/lib/highlight';
 coffeescriptHighlight = require 'highlight.js/lib/languages/coffeescript';
@@ -44,6 +45,7 @@ class QuestionSetView extends Backbone.View
     "click #showDiff": "showDiff"
 
     "keyup [data-type-of-code=label] textarea.code": "countChars"
+    "click .generateCodes": "generateCodes"
 
   countChars: (event) =>
     textArea = @$(event.target)
@@ -220,6 +222,8 @@ class QuestionSetView extends Backbone.View
     updatedElement = clickedElement.prev()
     propertyPath = updatedElement.attr("data-property-path")
     updatedValue = updatedElement.val()
+    if propertyPath.match "radio-options" # Convert newlines into comma separated
+      updatedValue = updatedValue.replace(/\n/g,",")
     updatedValue = JSON.parse(updatedValue) if isJSON(updatedValue)
     if propertyPath isnt "null"
       set(@questionSet, "data.#{propertyPath}", updatedValue)
@@ -592,6 +596,27 @@ class QuestionSetView extends Backbone.View
                                 update
                               </span>
                               <div style='display:none'>
+                                #{
+                                if Jackfruit.serverName is "Tusome22340"
+                                  "
+                                  <div class='codesGenerationDiv' style='
+                                    background: white;
+                                    font-size: small;
+                                    padding: 10px;
+                                    margin: 10px;
+                                  '>
+                                  Generate unique and easily transcribable codes<br/>
+                                  Number of codes required:<input type='number' class='numberOfCodes'></input><br/>
+                                  Number of characters for each code (e.g. 2):<input type='number' class='numberOfCharactersForEachCode'></input><br/>
+                                  Seed number (e.g. 123 - ensures you can recreate the same list next time): <input type='number' class='seedNumber'></input><br/>
+                                  <button class='generateCodes'>Generate codes</button>
+                                  </div>
+                                  "
+                                else
+                                  ""
+                                }
+
+
                                 <textarea style='display:block' data-property-path=#{propertyPath}>#{value}</textarea>
                                 <button class='save'>Save</button>
                                 <button class='cancel'>Cancel</button>
@@ -767,5 +792,43 @@ class QuestionSetView extends Backbone.View
 .jsondiffpatch-delta{font-family:'Bitstream Vera Sans Mono','DejaVu Sans Mono',Monaco,Courier,monospace;font-size:12px;margin:0;padding:0 0 0 12px;display:inline-block}.jsondiffpatch-delta pre{font-family:'Bitstream Vera Sans Mono','DejaVu Sans Mono',Monaco,Courier,monospace;font-size:12px;margin:0;padding:0;display:inline-block}ul.jsondiffpatch-delta{list-style-type:none;padding:0 0 0 20px;margin:0}.jsondiffpatch-delta ul{list-style-type:none;padding:0 0 0 20px;margin:0}.jsondiffpatch-added .jsondiffpatch-property-name,.jsondiffpatch-added .jsondiffpatch-value pre,.jsondiffpatch-modified .jsondiffpatch-right-value pre,.jsondiffpatch-textdiff-added{background:#bfb}.jsondiffpatch-deleted .jsondiffpatch-property-name,.jsondiffpatch-deleted pre,.jsondiffpatch-modified .jsondiffpatch-left-value pre,.jsondiffpatch-textdiff-deleted{background:#fbb;text-decoration:line-through}.jsondiffpatch-unchanged,.jsondiffpatch-movedestination{color:gray;display:none}.jsondiffpatch-unchanged,.jsondiffpatch-movedestination>.jsondiffpatch-value{transition:all .5s;-webkit-transition:all .5s;overflow-y:hidden}.jsondiffpatch-unchanged-showing .jsondiffpatch-unchanged,.jsondiffpatch-unchanged-showing .jsondiffpatch-movedestination>.jsondiffpatch-value{max-height:100px}.jsondiffpatch-unchanged-hidden .jsondiffpatch-unchanged,.jsondiffpatch-unchanged-hidden .jsondiffpatch-movedestination>.jsondiffpatch-value{max-height:0}.jsondiffpatch-unchanged-hiding .jsondiffpatch-movedestination>.jsondiffpatch-value,.jsondiffpatch-unchanged-hidden .jsondiffpatch-movedestination>.jsondiffpatch-value{display:block}.jsondiffpatch-unchanged-visible .jsondiffpatch-unchanged,.jsondiffpatch-unchanged-visible .jsondiffpatch-movedestination>.jsondiffpatch-value{max-height:100px}.jsondiffpatch-unchanged-hiding .jsondiffpatch-unchanged,.jsondiffpatch-unchanged-hiding .jsondiffpatch-movedestination>.jsondiffpatch-value{max-height:0}.jsondiffpatch-unchanged-showing .jsondiffpatch-arrow,.jsondiffpatch-unchanged-hiding .jsondiffpatch-arrow{display:none}.jsondiffpatch-value{display:inline-block}.jsondiffpatch-property-name{display:inline-block;padding-right:5px;vertical-align:top}.jsondiffpatch-property-name:after{content:': '}.jsondiffpatch-child-node-type-array>.jsondiffpatch-property-name:after{content:': ['}.jsondiffpatch-child-node-type-array:after{content:'],'}div.jsondiffpatch-child-node-type-array:before{content:'['}div.jsondiffpatch-child-node-type-array:after{content:']'}.jsondiffpatch-child-node-type-object>.jsondiffpatch-property-name:after{content:': {'}.jsondiffpatch-child-node-type-object:after{content:'},'}div.jsondiffpatch-child-node-type-object:before{content:'{'}div.jsondiffpatch-child-node-type-object:after{content:'}'}.jsondiffpatch-value pre:after{content:','}li:last-child>.jsondiffpatch-value pre:after,.jsondiffpatch-modified>.jsondiffpatch-left-value pre:after{content:''}.jsondiffpatch-modified .jsondiffpatch-value{display:inline-block}.jsondiffpatch-modified .jsondiffpatch-right-value{margin-left:5px}.jsondiffpatch-moved .jsondiffpatch-value{display:none}.jsondiffpatch-moved .jsondiffpatch-moved-destination{display:inline-block;background:#ffb;color:#888}.jsondiffpatch-moved .jsondiffpatch-moved-destination:before{content:' => '}ul.jsondiffpatch-textdiff{padding:0}.jsondiffpatch-textdiff-location{color:#bbb;display:inline-block;min-width:60px}.jsondiffpatch-textdiff-line{display:inline-block}.jsondiffpatch-textdiff-line-number:after{content:','}.jsondiffpatch-error{background:red;color:white;font-weight:bold}
   "
 
+  generateCodes: (event) =>
+    console.log "AAA"
+
+    codesGenerationDiv = $(event.target).closest(".codesGenerationDiv")
+    radioTextAreaDiv = codesGenerationDiv.parent()
+
+    try
+      codesRequired = parseInt(codesGenerationDiv.find(".numberOfCodes").val())
+      charsInCode= parseInt(codesGenerationDiv.find(".numberOfCharactersForEachCode").val())
+      seed = parseInt(codesGenerationDiv.find(".seedNumber").val())
+    catch
+      alert "Invalid numbers for code generation"
+
+    letters = "ABCEFHKMNPQRSTUVWXYZ".split("")
+
+    pseudoRandomNumberGenerator  = new MersenneTwister(124) # Passing a seed will make sure the same random-ish sequence always is generated
+
+    codes = []
+
+    overflow = 0
+
+    until codes.length is codesRequired or overflow > 1000
+      overflow += 1
+      # Randomly pick two letters from the list
+      code =  _(charsInCode).times => 
+        randomIndex = Math.round(pseudoRandomNumberGenerator.random() * (letters.length-1))
+        letters[randomIndex]
+      codes.push(code) unless _(codes).find (existingCode) =>
+        _.isEqual(existingCode, code) or # already exists
+        _.isEqual(_(existingCode).clone().reverse(), code) or # reversed version exists
+        _(code).uniq().length isnt code.length # has repeated letter
+
+    newValue = (for code in codes
+      code.join("")
+    ).join(",")
+
+    if confirm "Do yuo want to replace the current values with: #{newValue}"
+      radioTextAreaDiv.find("textarea").val newValue
 
 module.exports = QuestionSetView
