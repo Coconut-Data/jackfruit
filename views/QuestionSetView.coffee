@@ -807,7 +807,7 @@ class QuestionSetView extends Backbone.View
 
     letters = "ABCEFHKMNPQRSTUVWXYZ".split("")
 
-    pseudoRandomNumberGenerator  = new MersenneTwister(124) # Passing a seed will make sure the same random-ish sequence always is generated
+    pseudoRandomNumberGenerator  = new MersenneTwister(seed) # Passing a seed will make sure the same random-ish sequence always is generated
 
     codes = []
 

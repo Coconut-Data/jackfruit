@@ -264,7 +264,7 @@ class ServerView extends Backbone.View
     @username = Cookie.get("username")
     @password = Cookie.get("password")
 
-    unless @username and @password
+    unless @password
       return Promise.reject()
 
     @fetchDatabaseList()
@@ -280,9 +280,9 @@ class ServerView extends Backbone.View
           password = Cookie.get("password") or prompt("Password for Jackfruit serverName:")
           decryptedIdentityPoolId = Encryptor(password+password+password).decrypt(Jackfruit.knownDatabaseServers[Jackfruit.serverName].EncryptedIdentityPoolId)?[0]
 
-          console.log decryptedIdentityPoolId
-
           unless decryptedIdentityPoolId?.match(/:/) # Looks like an IdentityPoolId
+            if password isnt ""
+              alert "Password is not correct. Your password was: #{password}"
             Cookie.set("password", "")
             document.location.reload()
 
