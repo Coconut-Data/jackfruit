@@ -22,6 +22,10 @@ class ResultsView extends Backbone.View
     "click #pivotButton": "loadPivotTable"
     "click button#edit": "edit"
     "click button#delete": "delete"
+    "click button#refresh": "refresh"
+
+  refresh: =>
+    @tabulatorView.tabulator.replaceData((await @getResults()))
 
 
   ## MOVE THESE TO TabulatorView ##
@@ -112,6 +116,7 @@ class ResultsView extends Backbone.View
       <h2>
         Results for <a href='#questionSet/#{@serverName}/#{@databaseName}/#{@questionSet.name()}'>#{@questionSet.name()}</a> 
       </h2>
+      <button id='refresh'>Refresh</button>
       <div id='tabulatorView'>
       </div>
     "

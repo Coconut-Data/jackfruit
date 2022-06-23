@@ -1,5 +1,6 @@
 Backbone = require 'backbone'
 Passphrase = require 'xkcd-passphrase'
+Encryptor = require('simple-encryptor')
 
 crypto = require('crypto')
 
@@ -89,7 +90,7 @@ class ServerView extends Backbone.View
     @$el.html "
       <h1>#{Jackfruit.serverName}</h1>
       <div style='margin-left:100px; margin-top:100px; id='usernamePassword'>
-        <div>
+        <div id='usernameDiv'>
           Username: <input id='username'/>
         </div>
         <div>
@@ -98,6 +99,9 @@ class ServerView extends Backbone.View
         <button id='login'>Login</button>
       </div>
     "
+
+    if Jackfruit.knownDatabaseServers[Jackfruit.serverName].EncryptedIdentityPoolId # DynamoDB
+      @$("#usernameDiv").hide()
 
   events: =>
     "click #login": "updateUsernamePassword"
@@ -260,28 +264,46 @@ class ServerView extends Backbone.View
     @username = Cookie.get("username")
     @password = Cookie.get("password")
 
-    unless @username and @password
+    unless @password
       return Promise.reject()
 
     @fetchDatabaseList()
 
   fetchDatabaseList: =>
     new Promise (resolve,reject) =>
-      if Jackfruit.knownDatabaseServers[Jackfruit.serverName].IdentityPoolId? # DynamoDB
+
+      if Jackfruit.knownDatabaseServers[Jackfruit.serverName].EncryptedIdentityPoolId # DynamoDB
         @isDynamoDB = true
 
-        region = Jackfruit.knownDatabaseServers[Jackfruit.serverName].region
-        identityPoolId = Jackfruit.knownDatabaseServers[Jackfruit.serverName].IdentityPoolId
+        unless Jackfruit.dynamoDBClient
+          # This is encrypted with the tool in the scripts directory
+          password = Cookie.get("password") or prompt("Password for Jackfruit serverName:")
+          decryptedIdentityPoolId = Encryptor(password+password+password).decrypt(Jackfruit.knownDatabaseServers[Jackfruit.serverName].EncryptedIdentityPoolId)?[0]
 
-        @dynamoDBClient = new DynamoDBClient(
-          region: region
-          credentials: fromCognitoIdentityPool(
-            client: new CognitoIdentityClient({region})
-            identityPoolId: identityPoolId
-          )
-        )
+          unless decryptedIdentityPoolId?.match(/:/) # Looks like an IdentityPoolId
+            if password isnt ""
+              alert "Password is not correct. Your password was: #{password}"
+            Cookie.set("password", "")
+            document.location.reload()
 
-        gatewayConfigurations = await @dynamoDBClient.send(
+          if decryptedIdentityPoolId?.match(/:/) # Looks like an IdentityPoolId
+            Jackfruit.knownDatabaseServers[Jackfruit.serverName].IdentityPoolId = decryptedIdentityPoolId
+            Cookie.set("password",password)
+
+            region = Jackfruit.knownDatabaseServers[Jackfruit.serverName].region
+            Jackfruit.dynamoDBClient = new DynamoDBClient(
+              region: region
+              credentials: fromCognitoIdentityPool(
+                client: new CognitoIdentityClient({region})
+                identityPoolId: decryptedIdentityPoolId
+              )
+            )
+
+
+
+
+
+        gatewayConfigurations = await Jackfruit.dynamoDBClient.send(
           new ScanCommand(
             TableName: "Configurations"
           )
