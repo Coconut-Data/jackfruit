@@ -1,5 +1,5 @@
 {
-  "name": "strawberry",
+  "name": "jackfruit",
   "version": "1.0.0",
   "description": "Question Set Editor",
   "main": "Jackfruit.coffee",
@@ -9,7 +9,10 @@
     "watch": "./node_modules/watchify/bin/cmd.js -v -t coffeeify --debug --extension='.coffee' Jackfruit.coffee -o bundle.js",
     "livereload": "./node_modules/livereloadify/cli.js --glob bundle.js ./",
     "static": "./node_modules/node-static/bin/cli.js --host-address 0.0.0.0 --port 8085 ./",
-    "buildvendor": "./node_modules/browserify/bin/cmd.js  -r moment -r jquery -r backbone -r pouchdb -r underscore | ./node_modules/uglifyjs/bin/uglifyjs > vendor.min.js"
+    "buildvendor": "./node_modules/browserify/bin/cmd.js  -r moment -r jquery -r backbone -r pouchdb -r underscore | ./node_modules/uglifyjs/bin/uglifyjs > vendor.min.js",
+    "install-server": "npm install --no-optional --unsafe-perm",
+    "postinstall": "npm run buildvendor && npm run bundlify",
+    "bundlify": "npx browserify -t coffeeify --extension='.coffee' Jackfruit.coffee -o bundle.js"
   },
   "author": "",
   "license": "ISC",
