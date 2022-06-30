@@ -14,7 +14,7 @@ class SelectServerView extends Backbone.View
             "
             <tr style='height:50px;'>
               <td><a href='#server/#{name}'>#{name}</a></td>
-              <td><a href='#server/#{name}'>#{if _(url).isObject() then "AWS" else url}</a></td>
+              <td><a href='#server/#{name}'>#{url}</a></td>
             </tr>
             "
           ).join("")

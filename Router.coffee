@@ -10,16 +10,13 @@ SelectServerView = require './views/SelectServerView'
 ServerView = require './views/ServerView'
 DatabaseView = require './views/DatabaseView'
 GatewayView = require './views/GatewayView'
-MessagingView = require './views/MessagingView'
 
 class Router extends Backbone.Router
 
   applications:
-    "Ceshhar": "https://ceshhar.cococloud.co/ceshhar"
     "Coconut Surveillance Development": "https://zanzibar.cococloud.co/zanzibar-development"
     "Shokishoki": "https://zanzibar.cococloud.co/shokishoki"
     "Local Shokishoki": "http://localhost:5984/shokishoki"
-    "Local Kigelia": "http://localhost:5984/kigelia"
     "Entomological Surveillance": "https://zanzibar.cococloud.co/entomological-surveillance"
 
   routes:
@@ -30,7 +27,6 @@ class Router extends Backbone.Router
     "results/:serverName/:databaseName/:questionSetDocId": "results"
     "questionSet/:serverName/:databaseOrGatewayName/:questionSetDocId": "questionSet"
     "questionSet/:serverName/:databaseOrGatewayName/:questionSetDocId/:question": "questionSet"
-    "messaging/:serverName/:databaseOrGatewayName/:questionSetDocId": "messaging"
     "logout": "logout"
     "": "default"
 
@@ -70,15 +66,6 @@ class Router extends Backbone.Router
     @questionSetView.questionSet = await QuestionSet.fetch(questionSetDocId)
     @questionSetView.activeQuestionLabel = question
     @questionSetView.render()
-
-  messaging: (serverName, databaseOrGatewayName, questionSetDocId) =>
-    await Jackfruit.setupDatabase(serverName, databaseOrGatewayName)
-    @messagingView ?= new MessagingView()
-    @messagingView.serverName = serverName
-    @messagingView.databaseOrGatewayName = databaseOrGatewayName
-    @messagingView.setElement $("#content")
-    @messagingView.questionSet = await QuestionSet.fetch(questionSetDocId)
-    @messagingView.render()
 
   results: (serverName, databaseName, questionSetDocId, question) =>
     await Jackfruit.setupDatabase(serverName, databaseName)

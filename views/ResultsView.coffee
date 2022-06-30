@@ -9,9 +9,6 @@ humanize = require("underscore.string/humanize")
 slugify = require("underscore.string/slugify")
 underscored = require("underscore.string/underscored")
 
-{QueryCommand,DeleteItemCommand} = require "@aws-sdk/client-dynamodb"
-{marshall,unmarshall} = require("@aws-sdk/util-dynamodb")
-
 global.QuestionSet = require '../models/QuestionSet'
 
 TabulatorView = require './TabulatorView'
@@ -26,30 +23,6 @@ class ResultsView extends Backbone.View
 
   refresh: =>
     @tabulatorView.tabulator.replaceData((await @getResults()))
-
-
-  ## MOVE THESE TO TabulatorView ##
-  edit: =>
-    if Jackfruit.dynamoDBClient
-      @$("#deleteDiv").show()
-      @tabulator.getColumns()[0].show()
-
-  delete: =>
-    itemsToDelete = @tabulator.getSelectedData()
-    if itemsToDelete.length  > 0 and confirm "Are you sure you want to delete #{itemsToDelete.length} items?"
-      @$("#tabulator").html "Deleting selected items, please wait..."
-      await Promise.all(for item in itemsToDelete
-        Jackfruit.dynamoDBClient.send(
-          new DeleteItemCommand
-            TableName: "Gateway-#{@databaseName}"
-            Key: 
-              marshall
-                startTime: item._startTime
-                source: item.source
-
-        )
-      )
-      @render()
 
   getResults: =>
     questionSetName = @questionSet.name()
@@ -77,38 +50,6 @@ class ResultsView extends Backbone.View
         endkey: endkey
         include_docs: true
       .then (result) => Promise.resolve _(result.rows)?.pluck "doc"
-    else if Jackfruit.dynamoDBClient
-      #TODO store results in local pouchdb and then just get updates
-
-      items = []
-
-      loop
-
-        result = await Jackfruit.dynamoDBClient.send(
-          new QueryCommand
-            TableName: "Gateway-#{@databaseName}"
-            IndexName: "resultsByQuestionSetAndUpdateTime"
-            KeyConditionExpression: 'questionSetName = :questionSetName'
-            ExpressionAttributeValues:
-              ':questionSetName':
-                'S': questionSetName
-            ScanIndexForward: false
-            ExclusiveStartKey: result?.LastEvaluatedKey
-        )
-
-        items.push(...for item in result.Items
-          dbItem = unmarshall(item)
-          item = dbItem.reporting
-          item._startTime = dbItem.startTime # Need this to be able to delete
-          item
-        )
-
-        break unless result.LastEvaluatedKey #lastEvaluatedKey means there are more
-
-      Promise.resolve(items)
-
-
-
 
 
   render: =>

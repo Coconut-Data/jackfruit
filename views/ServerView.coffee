@@ -4,11 +4,6 @@ Encryptor = require('simple-encryptor')
 
 crypto = require('crypto')
 
-{ CognitoIdentityClient } = require("@aws-sdk/client-cognito-identity")
-{ fromCognitoIdentityPool } = require("@aws-sdk/credential-provider-cognito-identity")
-{DynamoDBClient,ScanCommand,PutItemCommand, CreateTableCommand, DescribeTableCommand} = require("@aws-sdk/client-dynamodb")
-{ marshall, unmarshall } = require("@aws-sdk/util-dynamodb")
-
 class ServerView extends Backbone.View
 
   render: =>
@@ -26,27 +21,11 @@ class ServerView extends Backbone.View
             font-size: 2em;
           }
         </style>
-        <h1>Select a #{if @isDynamoDB then "Gateway" else "database"}:</h1>
+        <h1>Select a database:</h1>
         #{
         }
 
         #{
-          if @isDynamoDB
-
-            "
-              #{
-                (for gateway in databaseList
-                  "<li style='height:50px;'><a href='#gateway/#{Jackfruit.serverName}/#{gateway}'>#{gateway}</a></li>"
-                ).join("")
-              
-              }
-              <h1>Create a new gateway:</h1>
-              Gateway Name: <input id='gatewayName'></input>
-              <br/>
-              <button id='newGateway'>Create</button>
-            "
-
-          else
             @taskDatabase = new PouchDB("#{@getServerUrlWithCredentials()}/server_tasks")
             databaseList = (for database in databaseList
               continue if database.startsWith("_")
@@ -100,9 +79,6 @@ class ServerView extends Backbone.View
       </div>
     "
 
-    if Jackfruit.knownDatabaseServers[Jackfruit.serverName].EncryptedIdentityPoolId # DynamoDB
-      @$("#usernameDiv").hide()
-
   events: =>
     "click #login": "updateUsernamePassword"
     "click #newDatabase": "newDatabase"
@@ -121,86 +97,6 @@ class ServerView extends Backbone.View
     username = Cookie.get("username")
     password = Cookie.get("password")
     "#{Jackfruit.knownDatabaseServers[Jackfruit.serverName]}".replace(/:\/\//, "://#{username}:#{password}@")
-
-  newGateway: =>
-    gatewayName = @$("#gatewayName").val()
-    item =
-      gatewayName: gatewayName
-      "Question Sets":
-        "Test Questions": 
-          label: "Test Questions"
-          version: "1"
-          questions: [
-            {
-              label: "Name"
-              calculated_label: "What is your name?"
-              type: "text"
-            }
-            {
-              label: "Middle Name"
-              calculated_label: "\#{ResultOfQuestion('Name')}, What is your middle name?"
-              skip_logic: "ResultOfQuestion('First Name') is 'Pete'"
-              type: "text"
-            }
-          ]
-    await @dynamoDBClient.send(
-      new PutItemCommand(
-        TableName: "Configurations"
-        Item: marshall(item)
-      )
-    )
-    await @dynamoDBClient.send(
-      new CreateTableCommand(
-        TableName: "Gateway-#{gatewayName}"
-        AttributeDefinitions: [
-          {
-            AttributeName: "lastUpdate"
-            AttributeType: "N"
-          },
-          {
-            AttributeName: "questionSetName"
-            AttributeType: "S"
-          },
-          {
-            AttributeName: "source"
-            AttributeType: "S"
-          },
-          {
-            AttributeName: "startTime"
-            AttributeType: "N"
-          }
-        ]
-        KeySchema: [
-          {
-            AttributeName: "source"
-            KeyType: "HASH"
-          },
-          {
-            AttributeName: "startTime",
-            KeyType: "RANGE"
-          }
-        ]
-        BillingMode: "PAY_PER_REQUEST"
-        GlobalSecondaryIndexes:[
-          IndexName: "resultsByQuestionSetAndUpdateTime"
-          KeySchema: [
-            {
-              AttributeName: "questionSetName",
-              KeyType: "HASH"
-            },
-            {
-              AttributeName: "lastUpdate",
-              KeyType: "RANGE"
-            }
-          ]
-          Projection:
-            NonKeyAttributes: ["reporting" ]
-            ProjectionType: "INCLUDE"
-        ]
-      )
-    )
-    @render()
-
 
   newDatabase: =>
     newUser = await Passphrase.generateWithWordCount(1)
@@ -271,54 +167,6 @@ class ServerView extends Backbone.View
 
   fetchDatabaseList: =>
     new Promise (resolve,reject) =>
-
-      if Jackfruit.knownDatabaseServers[Jackfruit.serverName].EncryptedIdentityPoolId # DynamoDB
-        @isDynamoDB = true
-
-        unless Jackfruit.dynamoDBClient
-          # This is encrypted with the tool in the scripts directory
-          password = Cookie.get("password") or prompt("Password for Jackfruit serverName:")
-          decryptedIdentityPoolId = Encryptor(password+password+password).decrypt(Jackfruit.knownDatabaseServers[Jackfruit.serverName].EncryptedIdentityPoolId)?[0]
-
-          unless decryptedIdentityPoolId?.match(/:/) # Looks like an IdentityPoolId
-            if password isnt ""
-              alert "Password is not correct. Your password was: #{password}"
-            Cookie.set("password", "")
-            document.location.reload()
-
-          if decryptedIdentityPoolId?.match(/:/) # Looks like an IdentityPoolId
-            Jackfruit.knownDatabaseServers[Jackfruit.serverName].IdentityPoolId = decryptedIdentityPoolId
-            Cookie.set("password",password)
-
-            region = Jackfruit.knownDatabaseServers[Jackfruit.serverName].region
-            Jackfruit.dynamoDBClient = new DynamoDBClient(
-              region: region
-              credentials: fromCognitoIdentityPool(
-                client: new CognitoIdentityClient({region})
-                identityPoolId: decryptedIdentityPoolId
-              )
-            )
-
-
-
-
-
-        gatewayConfigurations = await Jackfruit.dynamoDBClient.send(
-          new ScanCommand(
-            TableName: "Configurations"
-          )
-        )
-
-        Jackfruit.gateways = {}
-
-        for item in gatewayConfigurations.Items
-          unmarshalledItem = unmarshall(item)
-          Jackfruit.gateways[unmarshalledItem.gatewayName] = unmarshalledItem
-
-        resolve(gatewayName for gatewayName,details of Jackfruit.gateways)
-
-      else
-        @isDynamoDB = false
         fetch "#{Jackfruit.knownDatabaseServers[Jackfruit.serverName]}/_all_dbs",
           method: 'GET'
           credentials: 'include'

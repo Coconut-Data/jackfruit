@@ -86,7 +86,7 @@ class TabulatorView extends Backbone.View
 
     orderedColumnTitlesAndFields = @questionSet.data.questions.map (question) => 
       title: question.label
-      field: if Jackfruit.dynamoDBClient then question.label else slugify(question.label)
+      field: slugify(question.label)
       headerFilter: "input"
 
     columnNamesFromData = {}
@@ -100,7 +100,7 @@ class TabulatorView extends Backbone.View
     for columnName in Object.keys(columnNamesFromData)
       unless fieldsFromCurrentQuestionSet.includes(columnName)
         orderedColumnTitlesAndFields.push
-          title: if Jackfruit.dynamoDBClient then columnName else titleize(columnName)
+          title: titleize(columnName)
           field: columnName
 
     if @excludeTitles

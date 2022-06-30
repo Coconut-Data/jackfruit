@@ -88,7 +88,7 @@ class UsersView extends Backbone.View
       <button id='addColumn'>Add a column</button>
       <button id='addTamarindColumns'>Add Tamarind columns</button>
 
-      <div id='userTabulator'/>
+      <div id='userTabulator'></div>
     "
 
     @users = await @getUsers()

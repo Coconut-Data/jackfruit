@@ -36,7 +36,7 @@ class DatabaseView extends Backbone.View
         </style>
         <h1>#{@databaseName}</h1>
         <h2>Select a question set</h2>
-        <div id='questions'/>
+        <div id='questions'></div>
         <br/>
         <br/>
         #{
