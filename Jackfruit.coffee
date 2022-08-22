@@ -15,7 +15,7 @@ PouchDB
   .plugin(require 'pouchdb-upsert')
 
 Router = require './Router'
-AppConfig = require '../config.json'
+AppConfig = require './config.json'
 
 global.Jackfruit =
   knownDatabaseServers:
