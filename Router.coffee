@@ -10,7 +10,7 @@ SelectServerView = require './views/SelectServerView'
 ServerView = require './views/ServerView'
 DatabaseView = require './views/DatabaseView'
 GatewayView = require './views/GatewayView'
-AppConfig = require '../config.json'
+AppConfig = require './config.json'
 
 class Router extends Backbone.Router
 
