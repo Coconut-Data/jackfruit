@@ -10,14 +10,15 @@ SelectServerView = require './views/SelectServerView'
 ServerView = require './views/ServerView'
 DatabaseView = require './views/DatabaseView'
 GatewayView = require './views/GatewayView'
+AppConfig = require '../config.json'
 
 class Router extends Backbone.Router
 
   applications:
-    "Coconut Surveillance Development": "https://zanzibar.cococloud.co/zanzibar-development"
-    "Shokishoki": "https://zanzibar.cococloud.co/shokishoki"
+    "Coconut Surveillance Development": "https://#{AppConfig.targetUrl}/zanzibar-development"
+    "Shokishoki": "https://#{AppConfig.targetUrl}/shokishoki"
     "Local Shokishoki": "http://localhost:5984/shokishoki"
-    "Entomological Surveillance": "https://zanzibar.cococloud.co/entomological-surveillance"
+    "Entomological Surveillance": "https://#{AppConfig.targetUrl}/entomological-surveillance"
 
   routes:
     "select/server": "selectServer"

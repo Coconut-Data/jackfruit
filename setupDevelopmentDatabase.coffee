@@ -1,10 +1,11 @@
 PouchDB = require 'pouchdb'
 _ = require 'underscore'
+AppConfig = require '../config.json'
 
 config = {
   zanzibar:
-    source: "https://zanzibar.cococloud.co/zanzibar"
-    target: "https://zanzibar.cococloud.co/zanzibar-development"
+    source: "https://#{AppConfig.targetUrl}/zanzibar"
+    target: "https://#{AppConfig.targetUrl}/zanzibar-development"
     viewsForDocs: [
       "questions"
       "docIDsForUpdating"

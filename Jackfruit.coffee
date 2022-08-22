@@ -15,11 +15,11 @@ PouchDB
   .plugin(require 'pouchdb-upsert')
 
 Router = require './Router'
-
+AppConfig = require '../config.json'
 
 global.Jackfruit =
   knownDatabaseServers:
-    Zanzibar: "https://zanzibar.cococloud.co"
+    Zanzibar: "https://#{AppConfig.targetUrl}"
     Local: "http://localhost:5984"
 
 Jackfruit.serverCredentials = {}

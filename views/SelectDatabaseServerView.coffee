@@ -1,9 +1,10 @@
 Backbone = require 'backbone'
+AppConfig = require '../config.json'
 
 class SelectDatabaseServerView extends Backbone.View
 
   knownDatabaseServers:
-    Zanzibar: "https://zanzibar.cococloud.co"
+    Zanzibar: "https://#{AppConfig.targetUrl}"
     Local: "http://localhost:5984"
 
   render: =>
