@@ -11,6 +11,7 @@ Jackfruit is the canonical source documenting Question Sets and their options.
 
 ```
 npm install
+npm run install-server
 ```
 
 ## Development 
