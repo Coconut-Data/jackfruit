@@ -63,6 +63,14 @@ QuestionSet.properties =
       "description": "Icon to display for this question set. Find them <a href='https://fonts.google.com/icons?selected=Material+Icons:settings&icon.query=setting'>here</a>."
       "data-type": "icon-picker"
       "example": "home"
+    "start_date":
+      "description": "Date that the question set will start to be used (YYYY-MM-DD). Used by strawberry."
+      "data-type": "text"
+      "example": "2022-02-14"
+    "end_date":
+      "description": "Date that the question set will finish being used (YYYY-MM-DD). Used by strawberry."
+      "data-type": "text"
+      "example": "2022-02-30"
   }
 
 QuestionSet.templateForPropertyType = (type) =>
