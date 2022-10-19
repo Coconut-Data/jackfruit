@@ -26,11 +26,15 @@ class GatewayView extends Backbone.View
     "
 
     @questionSets = []
+    @databaseList = await Jackfruit.fetchDatabaseList()
+    console.log @databaseList
     @$("#questions").html (for questionSetName, questionSet of Jackfruit.gateway["Question Sets"]
       "
       <li>
         <a href='#questionSet/#{@serverName}/#{@gatewayName}/#{questionSetName}'>#{questionSetName}</a> 
         <button class='copy' data-question='#{questionSetName}'>Copy</button> 
+        <button class='copyToGatewayButton' onClick='$(this).siblings(\".copyToGateway\").show()' data-question='#{questionSetName}'>Copy To Gateway</button> 
+        <select data-question='#{questionSetName}' class='copyToGateway' style='display:none'><option></option>#{(@databaseList.map (gateway) => "<option>#{gateway}</option>").join("")}</select>
         <button class='rename' data-question='#{questionSetName}'>Rename</button> 
         <button class='remove' data-question='#{questionSetName}'>Remove</button> 
       </li>
@@ -43,9 +47,18 @@ class GatewayView extends Backbone.View
     "click .copy": "copy"
     "click .rename": "rename"
     "click .remove": "remove"
+    "change .copyToGateway": "copyToGateway"
 
+  copyToGateway: (event, renderOnDone = true) =>
+    targetGateway = Jackfruit.gateways[event.currentTarget.value]
+    question = event.target.getAttribute("data-question")
+    questionDoc = Jackfruit.gateway["Question Sets"][question]
+    newName = prompt("Name:", question)
+    questionDoc.label = newName
+    await Jackfruit.updateQuestionSetForGateway(questionDoc, null, targetGateway)
+    @render() if renderOnDone
 
-  copy: (event, renderOnDone = true) =>
+  copy: (event, renderOnDone = true, targetGateway = Jackfruit.gateway) =>
     question = event.target.getAttribute("data-question")
     questionDoc = Jackfruit.gateway["Question Sets"][question]
     newName = prompt("Name: ")
@@ -53,7 +66,7 @@ class GatewayView extends Backbone.View
       alert "Name must be different and not empty"
       return null
     questionDoc.label = newName
-    await Jackfruit.updateQuestionSetForCurrentGateway(questionDoc)
+    await Jackfruit.updateQuestionSetForGateway(questionDoc, null, targetGateway)
     @render() if renderOnDone
 
   rename: (event) =>

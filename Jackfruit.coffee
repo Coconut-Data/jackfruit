@@ -120,16 +120,81 @@ Jackfruit.updateGateway = (gatewayName) =>
 
 Jackfruit.updateQuestionSetForCurrentGateway = (questionSet, options) =>
   await Jackfruit.updateCurrentGateway()
-  Jackfruit.gateway["Question Sets"][questionSet.label] = questionSet
+  Jackfruit.updateQuestionSetForGateway(questionSet, options, Jackfruit.gateway)
+
+Jackfruit.updateQuestionSetForGateway = (questionSet, options, gateway) =>
+  gateway["Question Sets"][questionSet.label] = questionSet
   if options?.delete is true
-    delete Jackfruit.gateway["Question Sets"][questionSet.label]
+    delete gateway["Question Sets"][questionSet.label]
 
   Jackfruit.dynamoDBClient.send(
     new PutItemCommand(
       TableName: "Configurations"
-      Item: marshall(Jackfruit.gateway)
+      Item: marshall(gateway)
     )
   )
+
+
+
+Jackfruit.fetchDatabaseList = =>
+  new Promise (resolve,reject) =>
+    if Jackfruit.knownDatabaseServers[Jackfruit.serverName].EncryptedIdentityPoolId # DynamoDB
+      @isDynamoDB = true
+
+      unless Jackfruit.dynamoDBClient
+        # This is encrypted with the tool in the scripts directory
+        password = Cookie.get("password") or prompt("Password for Jackfruit serverName:")
+        decryptedIdentityPoolId = Encryptor(password+password+password).decrypt(Jackfruit.knownDatabaseServers[Jackfruit.serverName].EncryptedIdentityPoolId)?[0]
+
+        unless decryptedIdentityPoolId?.match(/:/) # Looks like an IdentityPoolId
+          if password isnt ""
+            alert "Password is not correct. Your password was: #{password}"
+          Cookie.set("password", "")
+          document.location.reload()
+
+        if decryptedIdentityPoolId?.match(/:/) # Looks like an IdentityPoolId
+          Jackfruit.knownDatabaseServers[Jackfruit.serverName].IdentityPoolId = decryptedIdentityPoolId
+          Cookie.set("password",password)
+
+          region = Jackfruit.knownDatabaseServers[Jackfruit.serverName].region
+          Jackfruit.dynamoDBClient = new DynamoDBClient(
+            region: region
+            credentials: fromCognitoIdentityPool(
+              client: new CognitoIdentityClient({region})
+              identityPoolId: decryptedIdentityPoolId
+            )
+          )
+
+      gatewayConfigurations = await Jackfruit.dynamoDBClient.send(
+        new ScanCommand(
+          TableName: "Configurations"
+        )
+      )
+
+      Jackfruit.gateways = {}
+
+      for item in gatewayConfigurations.Items
+        unmarshalledItem = unmarshall(item)
+        Jackfruit.gateways[unmarshalledItem.gatewayName] = unmarshalledItem
+
+      resolve(gatewayName for gatewayName,details of Jackfruit.gateways)
+
+    else
+      @isDynamoDB = false
+      fetch "#{Jackfruit.knownDatabaseServers[Jackfruit.serverName]}/_all_dbs",
+        method: 'GET'
+        credentials: 'include'
+        headers:
+          'content-type': 'application/json'
+          authorization: "Basic #{btoa("#{@username}:#{@password}")}"
+      .catch (error) =>
+        reject(error)
+      .then (response) =>
+        if response.status is 401
+          reject(response.statusText)
+        else
+          result = await response.json()
+          resolve(result)
 
 global.router = new Router()
 Backbone.history.start()
