@@ -82,7 +82,11 @@ class ResultsView extends Backbone.View
 
       items = []
 
+      console.log "STARTING"
+
       loop
+
+        limit = 1000
 
         result = await Jackfruit.dynamoDBClient.send(
           new QueryCommand
@@ -94,7 +98,12 @@ class ResultsView extends Backbone.View
                 'S': questionSetName
             ScanIndexForward: false
             ExclusiveStartKey: result?.LastEvaluatedKey
-        )
+            Limit: limit
+        ).catch (error) => 
+          console.log error
+          limit = limit/2
+          @$("#progress").html "Retrieved #{items.length} items. Database requests at maximum, continuing in 5 seconds."
+          await new Promise((resolve) =>setTimeout(resolve, 5000))
 
         items.push(...for item in result.Items
           dbItem = unmarshall(item)
@@ -104,7 +113,10 @@ class ResultsView extends Backbone.View
         )
 
         break unless result.LastEvaluatedKey #lastEvaluatedKey means there are more
+        @$("#progress").html "Retrieved #{items.length} items. Please wait."
+        await new Promise((resolve) => setTimeout(resolve, 5000))
 
+      @$("#progress").html ""
       Promise.resolve(items)
 
 
@@ -116,6 +128,7 @@ class ResultsView extends Backbone.View
       <h2>
         Results for <a href='#questionSet/#{@serverName}/#{@databaseName}/#{@questionSet.name()}'>#{@questionSet.name()}</a> 
       </h2>
+      <div id='progress'></div>
       <button id='refresh'>Refresh</button>
       <div id='tabulatorView'>
       </div>
