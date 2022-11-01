@@ -25,7 +25,8 @@ Router = require './Router'
 
 global.Jackfruit =
   knownDatabaseServers:
-    Zanzibar: "https://zanzibar.cococloud.co"
+    #Zanzibar: "https://zanzibar.cococloud.co"
+    Zanzibar: "https://coconut.mohz.go.tz/"
     Kigelia: "https://kigelia.cococloud.co"
     Ceshhar: "https://ceshhar.cococloud.co"
     Keep: "https://keep.cococloud.co"
