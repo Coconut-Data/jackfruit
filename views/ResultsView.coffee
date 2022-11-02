@@ -54,23 +54,37 @@ class ResultsView extends Backbone.View
   getResults: =>
     questionSetName = @questionSet.name()
 
+
     if Jackfruit.database
 
       startkey = "result-#{underscored(questionSetName.toLowerCase())}"
       endkey = "result-#{underscored(questionSetName.toLowerCase())}-\ufff0"
 
+
+      # Check and see if the above startkey/endkey find any data, otherwise we are probably using custom keys
+      if (await Jackfruit.database.allDocs
+        startkey: startkey
+        endkey: endkey
+        include_docs: false
+        limit: 1
+      ).rows.length is 0
+
+
       #### For entomological surveillance data ####
-      if Jackfruit.databaseName is "entomology_surveillance"
+      #if Jackfruit.databaseName is "entomology_surveillance"
       #
-        acronymForEnto = (idName) =>
+        customIdAcronym = (idName) =>
           #create acronmym for ID
           acronym = ""
           for word in idName.split(" ")
             acronym += word[0].toUpperCase() unless ["ID","SPECIMEN","COLLECTION","INVESTIGATION"].includes word.toUpperCase()
           acronym
 
-        startkey = "result-#{acronymForEnto(questionSetName)}"
-        endkey = "result-#{acronymForEnto(questionSetName)}-\ufff0"
+
+        console.log customIdAcronym(questionSetName)
+
+        startkey = "result-#{customIdAcronym(questionSetName)}"
+        endkey = "result-#{customIdAcronym(questionSetName)}-\ufff0"
 
       resultDocs = await Jackfruit.database.allDocs
         startkey: startkey
