@@ -60,7 +60,6 @@ class ResultsView extends Backbone.View
       startkey = "result-#{underscored(questionSetName.toLowerCase())}"
       endkey = "result-#{underscored(questionSetName.toLowerCase())}-\ufff0"
 
-
       # Check and see if the above startkey/endkey find any data, otherwise we are probably using custom keys
       if (await Jackfruit.database.allDocs
         startkey: startkey
@@ -69,19 +68,13 @@ class ResultsView extends Backbone.View
         limit: 1
       ).rows.length is 0
 
-
-      #### For entomological surveillance data ####
-      #if Jackfruit.databaseName is "entomology_surveillance"
-      #
+      # Need custom startkey/endey for ids
         customIdAcronym = (idName) =>
           #create acronmym for ID
           acronym = ""
           for word in idName.split(" ")
             acronym += word[0].toUpperCase() unless ["ID","SPECIMEN","COLLECTION","INVESTIGATION"].includes word.toUpperCase()
           acronym
-
-
-        console.log customIdAcronym(questionSetName)
 
         startkey = "result-#{customIdAcronym(questionSetName)}"
         endkey = "result-#{customIdAcronym(questionSetName)}-\ufff0"
