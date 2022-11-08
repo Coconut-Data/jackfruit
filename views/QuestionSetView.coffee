@@ -422,14 +422,38 @@ class QuestionSetView extends Backbone.View
         <h3><a id='resultsButton' href='#results/#{@serverName}/#{@databaseOrGatewayName}/#{@questionSet.name()}'>Results</a></h3>
         #{
           _.delay => # Delay it so the rest of the page loads quickly
+
+
+
+
             questionSetResultName = underscored(@questionSet.name().toLowerCase())
             startkey = "result-#{questionSetResultName}"
             endkey = "result-#{questionSetResultName}-\ufff0"
+
+            # Check and see if the above startkey/endkey find any data, otherwise we are probably using custom keys
+            if (await Jackfruit.database.allDocs
+              startkey: startkey
+              endkey: endkey
+              include_docs: false
+              limit: 1
+            ).rows.length is 0
+            # Need custom startkey/endey for ids
+              customIdAcronym = (idName) =>
+                #create acronmym for ID
+                acronym = ""
+                for word in idName.split(" ")
+                  acronym += word[0].toUpperCase() unless ["ID","SPECIMEN","COLLECTION","INVESTIGATION"].includes word.toUpperCase()
+                acronym
+
+              startkey = "result-#{customIdAcronym(questionSetResultName)}"
+              endkey = "result-#{customIdAcronym(questionSetResultName)}-\ufff0"
+
             Jackfruit.database.allDocs
               startkey: startkey
               endkey: endkey
             .then (result) =>
               @$("#resultsButton").html "Results (#{result.rows.length})"
+
           , 1000
           ""
         }
