@@ -247,6 +247,9 @@ class TabulatorView extends Backbone.View
     #  cols: ["Household District"]
     @pivotFields or= @preselectedTitles[0..1]
 
+    console.log data
+    console.log @pivotFields
+
     @$("#pivotTable").pivotUI data,
       rows: [@pivotFields[0]]
       cols: [@pivotFields[1]]

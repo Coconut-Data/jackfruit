@@ -19,7 +19,6 @@ TabulatorView = require './TabulatorView'
 class ResultsView extends Backbone.View
   events: =>
     "click #download": "csv"
-    "click #pivotButton": "loadPivotTable"
     "click button#edit": "edit"
     "click button#delete": "delete"
     "click button#refresh": "refresh"
@@ -79,6 +78,10 @@ class ResultsView extends Backbone.View
         startkey = "result-#{customIdAcronym(questionSetName)}"
         endkey = "result-#{customIdAcronym(questionSetName)}-\ufff0"
 
+      console.log "Using keys for allDocs query:"
+      console.log "startkey: #{startkey}"
+      console.log "endkey: #{endkey}"
+
       resultDocs = await Jackfruit.database.allDocs
         startkey: startkey
         endkey: endkey
@@ -109,8 +112,8 @@ class ResultsView extends Backbone.View
         ).catch (error) => 
           console.log error
           limit = limit/2
-          @$("#progress").html "Retrieved #{items.length} items. Database requests at maximum, continuing in 5 seconds."
-          await new Promise((resolve) =>setTimeout(resolve, 5000))
+          @$("#progress").html "Retrieved #{items.length} items. Database requests at maximum, continuing in 0.5 seconds."
+          await new Promise((resolve) =>setTimeout(resolve, 500))
 
         items.push(...for item in result.Items
           dbItem = unmarshall(item)
@@ -121,7 +124,7 @@ class ResultsView extends Backbone.View
 
         break unless result.LastEvaluatedKey #lastEvaluatedKey means there are more
         @$("#progress").html "Retrieved #{items.length} items. Please wait."
-        await new Promise((resolve) => setTimeout(resolve, 5000))
+        await new Promise((resolve) => setTimeout(resolve, 100))
 
       @$("#progress").html ""
       Promise.resolve(items)
