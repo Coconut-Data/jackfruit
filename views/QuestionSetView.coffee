@@ -392,7 +392,7 @@ class QuestionSetView extends Backbone.View
             <br/>
             <br/>
             <br/>
-            <div style='width:200px; border: 1px solid;' id='interact'/>
+            <div style='width:200px; border: 1px solid;' id='interact'></div>
           </div>
           <h2>Gateway: <a href='#gateway/#{@serverName}/#{@databaseOrGatewayName}'>#{@databaseOrGatewayName}</a>
           "
@@ -422,21 +422,17 @@ class QuestionSetView extends Backbone.View
         <h3><a id='resultsButton' href='#results/#{@serverName}/#{@databaseOrGatewayName}/#{@questionSet.name()}'>Results</a></h3>
         #{
           _.delay => # Delay it so the rest of the page loads quickly
-
-
-
-
             questionSetResultName = underscored(@questionSet.name().toLowerCase())
             startkey = "result-#{questionSetResultName}"
             endkey = "result-#{questionSetResultName}-\ufff0"
 
             # Check and see if the above startkey/endkey find any data, otherwise we are probably using custom keys
-            if (await Jackfruit.database.allDocs
+            if (await Jackfruit.database?.allDocs
               startkey: startkey
               endkey: endkey
               include_docs: false
               limit: 1
-            ).rows.length is 0
+            )?.rows.length is 0
             # Need custom startkey/endey for ids
               customIdAcronym = (idName) =>
                 #create acronmym for ID
@@ -448,12 +444,11 @@ class QuestionSetView extends Backbone.View
               startkey = "result-#{customIdAcronym(questionSetResultName)}"
               endkey = "result-#{customIdAcronym(questionSetResultName)}-\ufff0"
 
-            Jackfruit.database.allDocs
+            Jackfruit.database?.allDocs
               startkey: startkey
               endkey: endkey
             .then (result) =>
               @$("#resultsButton").html "Results (#{result.rows.length})"
-
           , 1000
           ""
         }

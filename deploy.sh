@@ -5,3 +5,7 @@ echo "Compressing bundle.js"
 cat bundle.js | npx terser | npx sponge bundle.js
 echo "Copying results to server"
 rsync --progress --verbose --copy-links --exclude=.git --exclude=node_modules --recursive ./ karafuu@coconut.mohz.go.tz:/var/www/jackfruit/
+# For deploying the s3 version
+#pushd dist
+#aws s3 sync . s3://jackfruit/
+#popd
